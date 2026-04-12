@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# SurpriseSage data (per-user, not committed)
+surprisesage_memory_*/
+logs/
+
+# Environment / secrets
+.env
+*.key
+
+# Byte-compiled / cache
+*.sqlite3
+*.db

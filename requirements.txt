@@ -1,0 +1,13 @@
+# Core
+ollama
+chromadb
+apscheduler
+customtkinter
+rumps
+pyobjc-framework-Cocoa
+pyobjc-framework-Quartz
+litellm
+
+# Knowledge fetcher (v0.8+)
+# yfinance
+# feedparser
