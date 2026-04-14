@@ -1,0 +1,56 @@
+{
+  "user_id": "your-name-abc123",
+  "name": "Your Name",
+  "display_name": "Your Name",
+
+  "goals": [
+    "Build something meaningful and impactful",
+    "Stay healthy, fit, and focused",
+    "Keep learning and growing every day"
+  ],
+
+  "personal_details": {
+    "job": "Software Engineer",
+    "location": "Your City",
+    "family": "",
+    "hobbies": "reading, building software, walking"
+  },
+
+  "preferences": {
+    "favorite_themes": [
+      "philosophy",
+      "indian_mythology",
+      "tech_innovation",
+      "stoic_wisdom",
+      "science_breakthroughs",
+      "entrepreneurship",
+      "sports_grit"
+    ],
+    "sports_teams": [],
+    "stocks": [],
+    "news_topics": []
+  },
+
+  "tone": "warm, slightly cheeky wise companion who feels like a fun older brother",
+
+  "schedule": {
+    "dnd": {
+      "start": "00:00",
+      "end": "07:00"
+    },
+    "frequency": "medium",
+    "fixed_times": [
+      "08:00",
+      "13:00",
+      "18:00",
+      "21:30"
+    ]
+  },
+
+  "memory_settings": {
+    "max_memories_per_query": 5,
+    "default_retention_days": 90,
+    "auto_cleanup_enabled": true,
+    "run_every_days": 30
+  }
+}

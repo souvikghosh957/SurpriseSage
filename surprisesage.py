@@ -28,30 +28,30 @@ def _check_ollama() -> bool:
 
 def main() -> None:
     setup_logging()
-    logger.info("🚀 SurpriseSage starting up...")
+    logger.info("SurpriseSage starting up...")
 
     # ── Profile validation ───────────────────────────────────────────────
     if not profile_exists():
-        print("❌ No user profile found.")
+        print("No user profile found.")
         print("   Run:  python onboarding.py")
         sys.exit(1)
 
     profile = load_profile()
     user_name = profile.get("display_name", profile.get("name", "Friend"))
-    logger.info("✅ Profile loaded for '%s' (id=%s)", user_name, profile["user_id"])
+    logger.info("Profile loaded for '%s' (id=%s)", user_name, profile["user_id"])
 
     # ── Ollama check ─────────────────────────────────────────────────────
     if not _check_ollama():
         logger.warning(
-            "⚠️  Ollama is not reachable. Surprises will use fallback messages. "
+            "Ollama is not reachable. Surprises will use fallback messages. "
             "Start Ollama with: ollama serve"
         )
 
     # ── Core components ──────────────────────────────────────────────────
     memory = MemoryStore(profile["user_id"])
 
-    # Create scheduler first
-    def trigger_surprise() -> None:
+    # ── Surprise pipeline ─────────────────────────────────────────────
+    def trigger_surprise(theme: str | None = None) -> None:
         try:
             context = get_active_context()
 
@@ -63,8 +63,8 @@ def main() -> None:
                 context.get("friendly_label", "general wisdom")
             )
 
-            prompt = build_surprise_prompt(profile, context, memories)
-            text, surprise_id = generate_surprise(prompt, profile)
+            prompt, vibe = build_surprise_prompt(profile, context, memories, theme=theme)
+            text, surprise_id = generate_surprise(prompt, profile, vibe)
 
             # Save to memory
             memory.save_memory(
@@ -75,6 +75,7 @@ def main() -> None:
 
             def on_feedback(sid: str, score: int) -> None:
                 memory.save_feedback(sid, score, text)
+                tray.record_feedback(score)
 
             # Show popup
             show_popup(text, surprise_id, on_feedback)
@@ -82,22 +83,24 @@ def main() -> None:
             # Add to tray recent list
             tray.add_surprise(text)
 
-            logger.info("✅ Surprise delivered: %s...", text[:70])
+            logger.info("Surprise delivered: %s...", text[:70])
 
         except Exception:
-            logger.exception("❌ Surprise pipeline failed")
+            logger.exception("Surprise pipeline failed")
 
-    # Scheduler
+    # Scheduler (uses the no-theme version)
     scheduler = SurpriseScheduler(
-        trigger_callback=trigger_surprise,
+        trigger_callback=lambda: trigger_surprise(),
         profile=profile,
     )
 
-    # Tray (created after scheduler so we can pass it)
+    # Tray
     tray = SurpriseSageTray(
         scheduler=scheduler,
         on_reload=lambda: _reload_profile(profile, scheduler, memory),
         on_reshow=lambda text: show_popup(text, "reshow", lambda _s, _sc: None),
+        on_themed_surprise=lambda theme: trigger_surprise(theme=theme),
+        memory_stats=memory.get_stats,
     )
 
     # Wire cleanup
@@ -106,7 +109,7 @@ def main() -> None:
     # Start everything
     scheduler.start()
 
-    logger.info("✅ SurpriseSage is now running! Look for the 🦉 in your menu bar.")
+    logger.info("SurpriseSage is now running! Look for the owl in your menu bar.")
     tray.run()   # This blocks forever
 
 
@@ -115,7 +118,7 @@ def _reload_profile(current_profile: dict, scheduler: SurpriseScheduler, memory:
     try:
         new_profile = load_profile()
         scheduler.reload_profile(new_profile)
-        logger.info("✅ Profile hot-reloaded successfully")
+        logger.info("Profile hot-reloaded successfully")
     except Exception:
         logger.exception("Failed to reload profile")
 

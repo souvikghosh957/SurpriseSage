@@ -26,7 +26,8 @@ env/
 .AppleDouble
 .LSOverride
 
-# SurpriseSage data (per-user, not committed)
+# SurpriseSage data (per-user, never commit)
+user_profile.json
 surprisesage_memory_*/
 logs/
 

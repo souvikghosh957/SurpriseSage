@@ -24,7 +24,7 @@ EMBED_MODEL = "nomic-embed-text"
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 # ── UI / Popup ───────────────────────────────────────────────────────────
-POPUP_DURATION_SEC = 14          # How long the popup stays visible
+POPUP_DURATION_SEC = 18          # How long the popup stays visible
 POPUP_WIDTH = 420
 POPUP_ALPHA = 0.96
 
@@ -36,13 +36,14 @@ THEMES = [
     "stoic_wisdom",
     "science_breakthroughs",
     "entrepreneurship",
+    "sports_grit",
 ]
 
 # ── Scheduling ───────────────────────────────────────────────────────────
-POISSON_MEAN_HOURS = 3.5          # Average gap between random surprises
-MIN_RANDOM_GAP_MINUTES = 30       # Minimum time between random surprises
+POISSON_MEAN_HOURS = 2.5          # Average gap between random surprises (~4-5 random/day)
+MIN_RANDOM_GAP_MINUTES = 20       # Minimum gap between random surprises
 DND_DEFAULT = {"start": "00:00", "end": "07:00"}
-DEFAULT_FIXED_TIMES = ["08:00", "13:00", "20:00"]
+DEFAULT_FIXED_TIMES = ["08:00", "13:00", "18:00", "21:30"]
 
 # ── Memory / RAG ─────────────────────────────────────────────────────────
 MAX_MEMORY_RESULTS = 5

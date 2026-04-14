@@ -2,7 +2,7 @@
 
 **Version:** 1.2
 **Date:** April 12, 2026
-**Author:** Souvik Ghosh (solo builder, Bengaluru)
+**Author:** Solo Builder
 **Status:** Living Document — update as we ship
 
 ## 1. Vision & Product Overview
@@ -223,19 +223,19 @@ surprisesage/
 
 ## 9. Prerequisites & Environment
 
-**Verified dev machine:**
-- macOS 26.3.1 (Tahoe), Apple Silicon, 48 GB RAM
-- Python 3.14.3
-- Ollama installed with `surprisesage:latest` (qwen3.5:27b) + `nomic-embed-text`
+**Recommended:**
+- macOS (Apple Silicon preferred), 16+ GB RAM (27b model needs ~22 GB; use a smaller model for less RAM)
+- Python 3.11+
+- Ollama installed with `surprisesage:latest` (custom qwen3.5:27b) + `nomic-embed-text`
 
 **Required before development:**
 
 | Tool / Package | Purpose | Install |
 |---|---|---|
-| Ollama | Local LLM serving | Already installed |
-| `surprisesage` model | Custom qwen3.5:27b | Already created via Modelfile |
+| Ollama | Local LLM serving | [ollama.com](https://ollama.com) |
+| `surprisesage` model | Custom qwen3.5:27b | `ollama create surprisesage -f Modelfile` |
 | `nomic-embed-text` | Embedding model for RAG | `ollama pull nomic-embed-text` |
-| Python 3.11+ | Runtime | Already installed (3.14.3) |
+| Python 3.11+ | Runtime | [python.org](https://python.org) |
 | venv | Isolated Python environment | `python3 -m venv .venv` |
 | `ollama` | Python client for Ollama | `pip install ollama` |
 | `chromadb` | Vector DB for RAG memory | `pip install chromadb` |

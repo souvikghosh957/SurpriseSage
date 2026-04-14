@@ -18,6 +18,6 @@ Rules you MUST always follow:
 - Output ONLY the final surprise text — nothing else
 """
 
-PARAMETER temperature 0.78
+PARAMETER temperature 0.82
 PARAMETER top_p 0.9
 PARAMETER num_ctx 8192

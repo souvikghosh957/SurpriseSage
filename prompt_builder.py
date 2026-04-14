@@ -16,59 +16,91 @@ logger = logging.getLogger("surprisesage.prompt")
 _THEME_HINTS: dict[str, str] = {
     "philosophy": (
         "Draw from thinkers like Seneca, Epicurus, Lao Tzu, Rumi, Confucius, "
-        "Nietzsche, Camus, or Simone de Beauvoir. Use a real quote or a striking philosophical idea."
+        "Dostoevsky, Nietzsche, Camus, Kafka, Simone de Beauvoir, or Gandhi. "
+        "Use a real quote or a striking philosophical idea."
     ),
     "indian_mythology": (
         "Draw from the Mahabharata, Ramayana, Bhagavad Gita, Upanishads, or stories of "
-        "Shiva, Krishna, Arjuna, Karna, Draupadi, Hanuman, or Chanakya. Use a real story or teaching."
+        "Shiva, Krishna, Arjuna, Karna, Draupadi, Hanuman, Chanakya, Eklavya, Bhishma, "
+        "or Vivekananda. Use a real story or teaching."
     ),
     "tech_innovation": (
         "Draw from the real stories of Steve Jobs, Elon Musk, Ada Lovelace, Alan Turing, "
-        "Nikola Tesla, the Wright Brothers, Grace Hopper, Linus Torvalds, or other tech pioneers. "
-        "Use a real anecdote or lesser-known fact."
+        "Nikola Tesla, the Wright Brothers, Grace Hopper, Linus Torvalds, Dennis Ritchie, "
+        "Hedy Lamarr, or Sam Altman. Use a real anecdote or lesser-known fact."
     ),
     "stoic_wisdom": (
         "Draw from Marcus Aurelius (Meditations), Epictetus (Discourses), Seneca (Letters), "
-        "or Zeno of Citium. Use a real Stoic quote or principle."
+        "Zeno of Citium, or Cato the Younger. Use a real Stoic quote or principle."
     ),
     "science_breakthroughs": (
-        "Draw from real breakthroughs — Feynman, Curie, Darwin, Hawking, Ramanujan, "
-        "Einstein, Rosalind Franklin, or Srinivasa Ramanujan. Use a real fact or discovery story."
+        "Draw from real breakthroughs — Feynman, Marie Curie, Darwin, Hawking, "
+        "Srinivasa Ramanujan, Einstein, Rosalind Franklin, Nikola Tesla, CV Raman, "
+        "or APJ Abdul Kalam. Use a real fact or discovery story."
     ),
     "entrepreneurship": (
         "Draw from founders like Dhirubhai Ambani, Narayana Murthy, Sara Blakely, "
-        "Jeff Bezos (garage days), or Jack Ma (rejected 30 times). Use a real founder story."
+        "Jeff Bezos (garage days), Jack Ma (rejected 30 times), Phil Knight (Nike), "
+        "or Ratan Tata. Use a real founder story."
+    ),
+    "sports_grit": (
+        "Draw from athletes like Sourav Ganguly (the Dada of Indian cricket), "
+        "Kobe Bryant (Mamba Mentality), Sachin Tendulkar, Michael Jordan, "
+        "MS Dhoni (ticket collector to World Cup captain), Usain Bolt, or Neeraj Chopra. "
+        "Use a real sports moment or lesser-known story."
     ),
 }
 
 # ── Time-of-day awareness ─────────────────────────────────────────────────
-def _get_time_context() -> str:
-    """Return a time-of-day hint for the prompt."""
+def _get_time_context() -> tuple[str, str]:
+    """Return (time description for user prompt, personality vibe for system prompt)."""
     hour = datetime.now().hour
+    weekday = datetime.now().strftime("%A")  # "Monday", "Friday", etc.
+
     if hour < 6:
-        return "It's late night / very early morning — the user is up late."
+        desc = "It's late night / very early morning — the user is up late."
+        vibe = "Be gentle, understanding, and impressed they're still going. Short and warm."
     elif hour < 10:
-        return "It's morning — a fresh start to the day."
+        desc = f"It's {weekday} morning — a fresh start to the day."
+        vibe = "Be energetic and motivational. Fire them up for the day ahead."
     elif hour < 13:
-        return "It's late morning — the user is likely deep in work."
+        desc = f"It's {weekday} late morning — the user is likely deep in work."
+        vibe = "Be focused and sharp. Respect their flow — deliver something punchy."
     elif hour < 15:
-        return "It's early afternoon — post-lunch energy dip."
+        desc = f"It's {weekday} early afternoon — post-lunch energy dip."
+        vibe = "Be light and playful. Give them a quick spark to fight the slump."
     elif hour < 18:
-        return "It's afternoon — the productive stretch of the day."
+        desc = f"It's {weekday} afternoon — the productive stretch."
+        vibe = "Be encouraging and forward-looking. They're in the zone."
     elif hour < 21:
-        return "It's evening — winding down or doing personal work."
+        desc = f"It's {weekday} evening — winding down or doing personal work."
+        vibe = "Be reflective and warm. Help them appreciate what they've done today."
     else:
-        return "It's night — the user might be reflecting or working late."
+        desc = f"It's {weekday} night — the user might be reflecting or working late."
+        vibe = "Be calm, philosophical, and introspective. Night-mode wisdom."
+
+    # Special day-of-week flavor
+    if weekday == "Monday" and hour < 12:
+        vibe += " It's Monday — give them a strong 'let's conquer the week' energy."
+    elif weekday == "Friday" and hour >= 17:
+        vibe += " It's Friday evening — celebrate the week. Be warm and congratulatory."
+    elif weekday in ("Saturday", "Sunday"):
+        vibe += " It's the weekend — be relaxed, fun, and personal. No work pressure."
+
+    return desc, vibe
 
 
-def _build_system_prompt(profile: dict) -> str:
+def _build_system_prompt(profile: dict, personality_vibe: str = "") -> str:
     """Build the system prompt dynamically using profile data. No hardcoding."""
     display_name = profile.get("display_name", profile.get("name", "Friend"))
     tone = profile.get("tone", "warm, slightly cheeky wise companion who feels like a fun older brother")
 
+    vibe_line = f"\nCurrent vibe: {personality_vibe}" if personality_vibe else ""
+
     return f"""You are SurpriseSage — a {tone}.
 
 You are talking to {display_name}. You know them well and care about their journey.
+{vibe_line}
 
 Rules you MUST follow:
 - Start your response with: "Hey {display_name},"
@@ -83,16 +115,41 @@ Rules you MUST follow:
 - Each surprise must feel fresh and different from the last"""
 
 
+def _pick_context_aware_theme(context: dict, favorites: list[str]) -> str:
+    """Pick a theme that fits what the user is doing right now."""
+    label = context.get("friendly_label", "")
+
+    # Context-to-theme affinity — nudge toward relevant themes when possible
+    affinities: dict[str, list[str]] = {
+        "coding": ["tech_innovation", "entrepreneurship", "stoic_wisdom"],
+        "in the terminal": ["tech_innovation", "science_breakthroughs"],
+        "browsing the web": ["philosophy", "science_breakthroughs"],
+        "listening to music": ["philosophy", "indian_mythology"],
+        "watching something": ["sports_grit", "philosophy"],
+        "chatting": ["stoic_wisdom", "philosophy"],
+        "designing": ["tech_innovation", "entrepreneurship"],
+        "writing notes": ["philosophy", "stoic_wisdom"],
+    }
+
+    preferred = affinities.get(label, [])
+    # 40% chance to use context-aware theme, 60% pure random (keeps variety)
+    if preferred and random.random() < 0.4:
+        candidates = [t for t in preferred if t in favorites]
+        if candidates:
+            return random.choice(candidates)
+
+    return random.choice(favorites)
+
+
 def build_surprise_prompt(
     profile: dict,
     context: dict,
     memories: list[dict],
     theme: str | None = None,
-) -> str:
-    """Build the full user prompt injected at runtime."""
-    chosen_theme = theme or random.choice(
-        profile.get("preferences", {}).get("favorite_themes", config.THEMES)
-    )
+) -> tuple[str, str]:
+    """Build the full user prompt. Returns (prompt_text, personality_vibe)."""
+    favorites = profile.get("preferences", {}).get("favorite_themes", config.THEMES)
+    chosen_theme = theme or _pick_context_aware_theme(context, favorites)
 
     display_name = profile.get("display_name", profile.get("name", "Friend"))
     goals = profile.get("goals", [])
@@ -118,15 +175,16 @@ def build_surprise_prompt(
         parts.append(f"Personal: {details['family']}")
 
     # ── What the user is doing right now ──────────────────────────────
+    time_desc, personality_vibe = _get_time_context()
+
     parts.append("")
     parts.append(f"Right now: {context.get('friendly_label', 'on the Mac')}")
     if context.get("window_title"):
         parts.append(f"Window: {context['window_title']}")
-    parts.append(_get_time_context())
+    parts.append(time_desc)
 
     # ── Recent memories (for variety / continuity) ────────────────────
     if memories:
-        # Filter to only surprise-category memories for de-duplication
         surprise_memories = [
             m for m in memories
             if m.get("metadata", {}).get("category") == "surprise"
@@ -148,10 +206,14 @@ def build_surprise_prompt(
     parts.append("")
     parts.append(f"Generate one surprise for {display_name} now.")
 
-    return "\n".join(parts)
+    return "\n".join(parts), personality_vibe
 
 
-def generate_surprise(prompt: str, profile: dict | None = None) -> tuple[str, str]:
+def generate_surprise(
+    prompt: str,
+    profile: dict | None = None,
+    personality_vibe: str = "",
+) -> tuple[str, str]:
     """Generate surprise using the custom model. Profile needed for dynamic system prompt."""
     surprise_id = uuid.uuid4().hex
 
@@ -159,7 +221,7 @@ def generate_surprise(prompt: str, profile: dict | None = None) -> tuple[str, st
         profile = config.load_profile()
 
     display_name = profile.get("display_name", profile.get("name", "Friend"))
-    system_prompt = _build_system_prompt(profile)
+    system_prompt = _build_system_prompt(profile, personality_vibe)
 
     try:
         response = ollama.chat(

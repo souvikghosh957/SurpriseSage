@@ -9,16 +9,21 @@ Top-left popup with:
 
 import json
 import sys
+from pathlib import Path
 
 import customtkinter as ctk
 
-# ── Configuration ─────────────────────────────────────────────────────────
-POPUP_DURATION_MS = 18000       # 18 seconds
-POPUP_WIDTH = 420
+# Import config for shared constants (popup runs as subprocess, so we import directly)
+sys.path.insert(0, str(Path(__file__).parent))
+import config
+
+# ── Configuration (derived from config.py) ────────────────────────────────
+POPUP_DURATION_MS = config.POPUP_DURATION_SEC * 1000
+POPUP_WIDTH = config.POPUP_WIDTH
+POPUP_ALPHA = config.POPUP_ALPHA
 POPUP_MIN_HEIGHT = 220
 POPUP_MAX_HEIGHT = 440
-POPUP_ALPHA = 0.96
-PROGRESS_TICK_MS = 40           # smooth progress bar update
+PROGRESS_TICK_MS = 40
 
 # ── Colors ────────────────────────────────────────────────────────────────
 BG_DARK = "#0f0f14"
