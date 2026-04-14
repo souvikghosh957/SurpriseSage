@@ -1,168 +1,330 @@
-# SurpriseSage
+<p align="center">
+  <img src="assets/owl-icon.png" width="150" alt="SurpriseSage"/>
+</p>
 
-**Your Mac's gentle tap on the shoulder — with wisdom, warmth, and a wink.**
+<h1 align="center">SurpriseSage</h1>
 
-SurpriseSage is a local-first, personal AI companion that lives in your Mac's menu bar. It delivers context-aware micro-surprises throughout your day — philosophy, Indian mythology, tech history, Stoic wisdom, sports grit, and more — tailored to your goals, your mood, and what you're doing right now.
+<p align="center">
+  <strong>Your Mac's gentle tap on the shoulder — with wisdom, warmth, and a wink.</strong>
+</p>
 
-It feels like a wise, slightly cheeky older brother who knows you deeply and gently nudges you with exactly what you need.
+<p align="center">
+  <a href="#-quick-start">Quick Start</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="#-features">Features</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="#-how-it-works">How It Works</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="#-customization">Customization</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;<a href="#-contributing">Contributing</a>
+</p>
 
-## What It Does
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-macOS-000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/AI-100%25_Local-2ea44f?style=for-the-badge" alt="100% Local AI"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/license-MIT-grey?style=for-the-badge" alt="MIT License"/>
+</p>
 
-- Pops up short, personalized surprises tied to **your real goals and context**
-- Detects what app you're using and adapts (coding? browsing? relaxing?)
-- Shifts personality by time of day (energetic mornings, calm late nights, reflective evenings)
-- Remembers past surprises and never repeats itself (ChromaDB RAG)
-- Learns from your feedback (thumbs up/down)
-- Runs **100% locally** — your data never leaves your machine
+<br/>
 
-## Screenshots
+<p align="center">
+  <img src="assets/surprise-popup-demo.png" width="520" alt="SurpriseSage popup in action" />
+</p>
 
-> *Coming soon — the popup is a dark-themed card with gold accents, fade-in animation, progress bar, and click-to-hold.*
+<p align="center">
+  <sub>A surprise in action — personalized, contextual, and just the right amount of inspiring.</sub>
+</p>
 
-## Features
+<br/>
+
+---
+
+SurpriseSage is a **local-first AI companion** that lives in your Mac's menu bar. It delivers context-aware micro-surprises throughout your day — philosophy, mythology, tech history, Stoic wisdom, sports grit, and more — all tailored to **your goals**, **your mood**, and **what you're doing right now**.
+
+> Think of it as a wise, slightly cheeky older brother who knows you deeply and gently nudges you with exactly what you need.
+
+<br/>
+
+## &nbsp; Features
+
+<table>
+<tr>
+<td width="50%">
+
+**Personalized to you**
+- Surprises tied to your real goals, interests, and context
+- Learns from your thumbs up/down feedback
+
+</td>
+<td width="50%">
+
+**Context-aware**
+- Detects your active app (coding? browsing? relaxing?)
+- Time-of-day personality shifts (energetic mornings, calm nights)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**Smart memory**
+- ChromaDB + RAG ensures no surprise ever repeats
+- Remembers what resonated and builds on it
+
+</td>
+<td width="50%">
+
+**Beautiful & private**
+- Dark popup with gold accents, fade-in animation, progress bar
+- 100% local — your data never leaves your machine
+
+</td>
+</tr>
+</table>
+
+<br/>
+
+<details>
+<summary><strong>Full feature roadmap</strong></summary>
+
+<br/>
 
 | Feature | Status |
-|---|---|
-| Local LLM via Ollama (qwen3.5:27b) | Done |
-| ChromaDB memory with RAG | Done |
-| macOS context detection (active app, window title, fullscreen) | Done |
-| Dynamic prompt builder (time-aware, context-smart themes) | Done |
-| CustomTkinter popup with fade-in/out, progress bar, click-to-hold | Done |
-| System tray with theme picker, pause-with-timer, stats | Done |
-| Feedback loop (thumbs up/down saves to memory) | Done |
-| Scheduled surprises (fixed + Poisson random) | Done |
-| DND hours, fullscreen skip | Done |
-| Cloud fallback via LiteLLM | Ready (toggle in profile) |
+|:---|:---:|
+| Local LLM via Ollama (Qwen 3.5 27B) | **Done** |
+| ChromaDB memory with RAG | **Done** |
+| macOS context detection (active app, window title, fullscreen) | **Done** |
+| Dynamic prompt builder (time-aware, context-smart themes) | **Done** |
+| CustomTkinter popup with fade-in/out, progress bar, click-to-hold | **Done** |
+| System tray with theme picker, pause-with-timer, stats | **Done** |
+| Feedback loop (thumbs up/down saves to memory) | **Done** |
+| Scheduled surprises (fixed + Poisson random) | **Done** |
+| DND hours, fullscreen skip | **Done** |
+| Cloud fallback via LiteLLM | Ready |
 | Knowledge fetcher (stocks, sports, news) | Planned |
 | Chat mode | Planned |
 | Cross-platform (Windows/Linux) | Future |
 
-## Quick Start
+</details>
+
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; Quick Start
 
 ### Prerequisites
 
-- **macOS** (Apple Silicon recommended)
-- **Python 3.11+**
-- **Ollama** installed ([ollama.com](https://ollama.com))
-- **16+ GB RAM** (the 27b model uses ~22 GB; swap to a smaller model if needed)
+| | Requirement | Notes |
+|:---|:---|:---|
+| **OS** | macOS | Apple Silicon recommended |
+| **Runtime** | Python 3.11+ | Check with `python3 --version` |
+| **AI** | [Ollama](https://ollama.com) | Local LLM runtime |
+| **RAM** | 16 GB+ | 27B model uses ~22 GB &mdash; see [smaller models](#-using-a-smaller-model) |
 
-### Setup
+### Installation
 
 ```bash
-# 1. Clone
+# Clone
 git clone https://github.com/souvikghosh957/SurpriseSage.git
 cd SurpriseSage
 
-# 2. Pull models
+# Set up the AI models
 ollama pull nomic-embed-text
 ollama create surprisesage -f Modelfile
 
-# 3. Python environment
-python3 -m venv .venv
-source .venv/bin/activate
+# Python environment
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Create your profile
+# Create your profile (interactive wizard)
 python onboarding.py
 
-# 5. Run
+# Launch!
 python surprisesage.py
 ```
 
-The owl icon appears in your menu bar. Click it and hit **"Next Surprise Now"** to try it out.
+The owl appears in your menu bar. Click it and hit **"Next Surprise Now"** to get your first surprise!
 
-### Accessibility Permission
+<details>
+<summary><strong>macOS Accessibility permission</strong></summary>
 
-On first run, macOS will ask for Accessibility permission (needed to read window titles). Grant it in **System Settings > Privacy & Security > Accessibility**.
+<br/>
 
-## How It Works
+On first run, macOS will ask for Accessibility permission (needed to read window titles).
+
+Grant it in: **System Settings > Privacy & Security > Accessibility**
+
+</details>
+
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; How It Works
 
 ```
-Scheduler (fixed + random triggers)
-    |
-    v
-Context Detector --> what app are you using?
-    |
-    v
-Memory (ChromaDB) --> what did we talk about before?
-    |
-    v
-Prompt Builder --> assembles: goals + context + memories + theme + time-of-day vibe
-    |
-    v
-AI Brain (Ollama qwen3.5:27b, think=False) --> generates surprise
-    |
-    v
-Popup (CustomTkinter, separate process) --> shows it, collects feedback
-    |
-    v
-Memory --> saves surprise + feedback for next time
+  Scheduler               Fixed times + random Poisson triggers
+      │
+      ▼
+  Context Detector        What app are you using? Fullscreen?
+      │
+      ▼
+  Memory (ChromaDB)       What have we talked about before?
+      │
+      ▼
+  Prompt Builder          Goals + context + memories + theme + time-of-day
+      │
+      ▼
+  AI Brain (Ollama)       Generates a personalized surprise
+      │
+      ▼
+  Popup (CustomTkinter)   Shows it, collects your feedback
+      │
+      ▼
+  Memory                  Saves surprise + feedback for next time
 ```
 
-## Customization
+<br/>
 
-Edit `user_profile.json` (created by onboarding) to change:
+---
 
-- **Goals** — what you're working toward
-- **Personal details** — job, hobbies, family (used to make surprises personal)
-- **Favorite themes** — philosophy, indian_mythology, tech_innovation, stoic_wisdom, science_breakthroughs, entrepreneurship, sports_grit
-- **Tone** — how the companion talks to you
-- **Schedule** — DND hours, fixed surprise times, frequency
-- **Memory settings** — retention days, cleanup rules
+<br/>
+
+## &nbsp; Menu Bar
+
+| Menu Item | What It Does |
+|:---|:---|
+| **Next Surprise Now** | Trigger a surprise immediately |
+| **Surprise Me About...** | Pick a specific theme (philosophy, sports, etc.) |
+| **Recent Surprises** | View and re-show past surprises |
+| **Pause Surprises** | Toggle pause, or pause for 30m / 1hr / 3hr with auto-resume |
+| **Stats** | Surprise count, feedback breakdown, memory stats |
+| **Reload Profile** | Hot-reload your profile without restarting |
+| **Quit** | Stop the app |
+
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; Customization
+
+Edit `user_profile.json` (created during onboarding) to tweak everything:
+
+| Setting | Examples |
+|:---|:---|
+| **Goals** | What you're working toward |
+| **Personal details** | Job, hobbies, family — makes surprises personal |
+| **Themes** | `philosophy` `indian_mythology` `tech_innovation` `stoic_wisdom` `science_breakthroughs` `entrepreneurship` `sports_grit` |
+| **Tone** | How the companion talks to you |
+| **Schedule** | DND hours, fixed surprise times, frequency |
+| **Memory** | Retention days, cleanup rules |
 
 Changes take effect immediately via **Reload Profile** in the menu bar.
 
-A sample is provided in `sample_user_profile.json`.
+A sample is provided in [`sample_user_profile.json`](sample_user_profile.json).
 
-## Menu Bar Options
+<br/>
 
-| Menu Item | What It Does |
-|---|---|
-| Next Surprise Now | Trigger a surprise immediately |
-| Surprise Me About... | Pick a specific theme (philosophy, sports, etc.) |
-| Recent Surprises | View and re-show past surprises |
-| Pause Surprises | Toggle pause, or pause for 30m / 1hr / 3hr with auto-resume |
-| Stats | See surprise count, feedback breakdown, memory stats |
-| Reload Profile | Hot-reload user_profile.json without restarting |
-| Quit | Stop the app |
+---
 
-## Project Structure
+<br/>
 
-```
-surprisesage/
-├── surprisesage.py          # main entry point
-├── tray.py                  # macOS system tray (rumps)
-├── scheduler.py             # APScheduler triggers
-├── prompt_builder.py        # dynamic prompt assembly + AI generation
-├── memory.py                # ChromaDB RAG layer
-├── context_detector.py      # active app/window detection
-├── ui_popup.py              # popup launcher (subprocess bridge)
-├── _popup_window.py         # CustomTkinter popup window
-├── config.py                # constants, paths, defaults
-├── onboarding.py            # first-run CLI wizard
-├── Modelfile                # Ollama custom model definition
-├── sample_user_profile.json # template for your profile
-├── requirements.txt
-└── SURPRISESAGE_DESIGN_SPEC.md
-```
+## &nbsp; Using a Smaller Model
 
-## Privacy
-
-- **100% local by default** — no data leaves your machine
-- Memory stored in `~/.surprisesage/` with `chmod 700` permissions
-- No telemetry, no analytics, no cloud calls unless you opt in
-- `user_profile.json` is gitignored — your personal data stays local
-
-## Using a Smaller Model
-
-If you have less than 24 GB RAM, edit the `Modelfile`:
+Running on less than 24 GB RAM? Edit the `Modelfile`:
 
 ```
 FROM qwen3:8b
 ```
 
-Then rebuild: `ollama create surprisesage -f Modelfile`
+Then rebuild:
 
-## License
+```bash
+ollama create surprisesage -f Modelfile
+```
 
-MIT
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; Project Structure
+
+```
+SurpriseSage/
+├── surprisesage.py            Main entry point
+├── tray.py                    macOS system tray (rumps)
+├── scheduler.py               APScheduler triggers
+├── prompt_builder.py          Dynamic prompt assembly + AI generation
+├── memory.py                  ChromaDB RAG layer
+├── context_detector.py        Active app & window detection
+├── ui_popup.py                Popup launcher (subprocess bridge)
+├── _popup_window.py           CustomTkinter popup window
+├── config.py                  Constants, paths, defaults
+├── onboarding.py              First-run CLI wizard
+├── Modelfile                  Ollama custom model definition
+├── sample_user_profile.json   Template profile
+└── requirements.txt           Python dependencies
+```
+
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; Privacy
+
+| | |
+|:---|:---|
+| **100% local** | No data leaves your machine — ever (unless you opt into cloud fallback) |
+| **Secure storage** | Memory stored in `~/.surprisesage/` with `chmod 700` permissions |
+| **No tracking** | Zero telemetry, zero analytics, zero cloud calls by default |
+| **Profile is gitignored** | Your `user_profile.json` stays local and private |
+
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; Contributing
+
+Contributions are welcome! Here's how:
+
+1. **Fork** the repo
+2. **Create a branch** &mdash; `git checkout -b my-feature`
+3. **Make your changes** and test locally
+4. **Open a Pull Request** against `main`
+
+### Ideas for Contributions
+
+- Windows / Linux support
+- New surprise themes
+- Knowledge fetchers (stocks, sports scores, news)
+- Chat mode for interactive conversations
+- Localization & multi-language support
+- UI animation improvements
+
+Found a bug or have an idea? [Open an issue](https://github.com/souvikghosh957/SurpriseSage/issues).
+
+<br/>
+
+---
+
+<br/>
+
+## &nbsp; License
+
+[MIT](LICENSE) &mdash; use it, remix it, build on it.
+
+<br/>
+
+<p align="center">
+  <sub>Built with curiosity and late-night coffee.</sub>
+</p>
