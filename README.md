@@ -139,11 +139,13 @@ pip install -r requirements.txt
 # Create your profile (interactive wizard)
 python onboarding.py
 
-# Launch!
-python surprisesage.py
+# Install as a service & launch
+./sagectl install
 ```
 
 The owl appears in your menu bar. Click it and hit **"Next Surprise Now"** to get your first surprise!
+
+SurpriseSage will **auto-start on login** and **restart on crash** — no terminal needed.
 
 <details>
 <summary><strong>macOS Accessibility permission</strong></summary>
@@ -155,6 +157,34 @@ On first run, macOS will ask for Accessibility permission (needed to read window
 Grant it in: **System Settings > Privacy & Security > Accessibility**
 
 </details>
+
+<details>
+<summary><strong>Run manually instead</strong></summary>
+
+<br/>
+
+If you prefer running in a terminal: `python surprisesage.py`
+
+</details>
+
+<br/>
+
+### Managing the Service
+
+Use `sagectl` to manage SurpriseSage:
+
+| Command | What It Does |
+|:---|:---|
+| `./sagectl install` | Install as a login service and start now |
+| `./sagectl uninstall` | Stop and remove from login items |
+| `./sagectl start` | Start SurpriseSage |
+| `./sagectl stop` | Stop SurpriseSage |
+| `./sagectl restart` | Stop then start |
+| `./sagectl status` | Check if it's running |
+| `./sagectl logs` | Tail the live log |
+| `./sagectl update` | Pull latest changes, reinstall deps, restart |
+
+After making code changes locally, just run `./sagectl restart`. Pulling from remote? `./sagectl update` handles everything.
 
 <br/>
 
@@ -257,19 +287,20 @@ ollama create surprisesage -f Modelfile
 
 ```
 SurpriseSage/
-├── surprisesage.py            Main entry point
-├── tray.py                    macOS system tray (rumps)
-├── scheduler.py               APScheduler triggers
-├── prompt_builder.py          Dynamic prompt assembly + AI generation
-├── memory.py                  ChromaDB RAG layer
-├── context_detector.py        Active app & window detection
-├── ui_popup.py                Popup launcher (subprocess bridge)
-├── _popup_window.py           CustomTkinter popup window
-├── config.py                  Constants, paths, defaults
-├── onboarding.py              First-run CLI wizard
-├── Modelfile                  Ollama custom model definition
-├── sample_user_profile.json   Template profile
-└── requirements.txt           Python dependencies
+├── surprisesage.py                  Main entry point
+├── tray.py                          macOS system tray (rumps)
+├── scheduler.py                     APScheduler triggers
+├── prompt_builder.py                Dynamic prompt assembly + AI generation
+├── memory.py                        ChromaDB RAG layer
+├── context_detector.py              Active app & window detection
+├── ui_popup.py                      Popup launcher (subprocess bridge)
+├── _popup_window.py                 CustomTkinter popup window
+├── config.py                        Constants, paths, defaults
+├── onboarding.py                    First-run CLI wizard
+├── sagectl                          Service manager (start/stop/update)
+├── Modelfile                        Ollama custom model definition
+├── sample_user_profile.json         Template profile
+└── requirements.txt                 Python dependencies
 ```
 
 <br/>

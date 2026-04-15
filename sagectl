@@ -1,0 +1,162 @@
+#!/bin/bash
+# sagectl — Manage the SurpriseSage launchd service
+set -euo pipefail
+
+PLIST_NAME="com.surprisesage.app"
+PLIST_DST="$HOME/Library/LaunchAgents/${PLIST_NAME}.plist"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+LOG_DIR="$HOME/.surprisesage"
+
+usage() {
+    echo "Usage: sagectl {install|uninstall|start|stop|restart|status|logs|update}"
+    echo ""
+    echo "  install    Generate plist, load the service (starts on login)"
+    echo "  uninstall  Stop & remove the service"
+    echo "  start      Start SurpriseSage now"
+    echo "  stop       Stop SurpriseSage now"
+    echo "  restart    Stop then start"
+    echo "  status     Show whether the service is running"
+    echo "  logs       Tail the application log"
+    echo "  update     Git pull, reinstall deps, then restart"
+    exit 1
+}
+
+generate_plist() {
+    mkdir -p "$HOME/Library/LaunchAgents" "$LOG_DIR"
+    cat > "$PLIST_DST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${PLIST_NAME}</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${VENV_PYTHON}</string>
+        <string>${PROJECT_DIR}/surprisesage.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>${PROJECT_DIR}</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>${LOG_DIR}/launchd-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>${LOG_DIR}/launchd-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>${PROJECT_DIR}/.venv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>
+EOF
+}
+
+install_service() {
+    if ! [ -f "$VENV_PYTHON" ]; then
+        echo "Error: Virtual environment not found at ${PROJECT_DIR}/.venv"
+        echo "Run:  python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
+        exit 1
+    fi
+
+    # Unload existing service if present (ignore errors)
+    launchctl unload "$PLIST_DST" 2>/dev/null || true
+
+    generate_plist
+    launchctl load "$PLIST_DST"
+    echo "✓ SurpriseSage installed and started. It will auto-start on login."
+}
+
+uninstall_service() {
+    if [ -f "$PLIST_DST" ]; then
+        launchctl unload "$PLIST_DST" 2>/dev/null || true
+        rm -f "$PLIST_DST"
+        echo "✓ SurpriseSage uninstalled."
+    else
+        echo "Service not installed."
+    fi
+}
+
+start_service() {
+    if ! [ -f "$PLIST_DST" ]; then
+        echo "Service not installed. Run: sagectl install"
+        exit 1
+    fi
+    launchctl start "$PLIST_NAME"
+    echo "✓ SurpriseSage started."
+}
+
+stop_service() {
+    launchctl stop "$PLIST_NAME" 2>/dev/null || true
+    echo "✓ SurpriseSage stopped."
+}
+
+show_status() {
+    if launchctl list "$PLIST_NAME" &>/dev/null; then
+        pid=$(launchctl list | grep "$PLIST_NAME" | awk '{print $1}')
+        if [ -n "$pid" ] && [ "$pid" != "-" ]; then
+            echo "SurpriseSage is running (PID: $pid)"
+        else
+            echo "SurpriseSage is loaded but not currently running"
+        fi
+    else
+        echo "SurpriseSage is not loaded"
+    fi
+}
+
+tail_logs() {
+    log_file="$LOG_DIR/surprisesage.log"
+    if [ -f "$log_file" ]; then
+        tail -f "$log_file"
+    else
+        echo "No log file found at $log_file"
+        echo "Checking launchd stderr..."
+        stderr="$LOG_DIR/launchd-stderr.log"
+        [ -f "$stderr" ] && tail -f "$stderr" || echo "No logs available yet."
+    fi
+}
+
+update_service() {
+    echo "Pulling latest changes..."
+    cd "$PROJECT_DIR"
+    git pull
+
+    echo "Installing dependencies..."
+    .venv/bin/pip install -r requirements.txt --quiet
+
+    echo "Restarting service..."
+    launchctl stop "$PLIST_NAME" 2>/dev/null || true
+    sleep 1
+    launchctl start "$PLIST_NAME"
+    echo "✓ SurpriseSage updated and restarted."
+}
+
+case "${1:-}" in
+    install)   install_service ;;
+    uninstall) uninstall_service ;;
+    start)     start_service ;;
+    stop)      stop_service ;;
+    restart)   stop_service; sleep 1; start_service ;;
+    status)    show_status ;;
+    logs)      tail_logs ;;
+    update)    update_service ;;
+    *)         usage ;;
+esac
