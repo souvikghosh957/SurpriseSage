@@ -16,14 +16,10 @@ from ui_popup import show_popup
 logger = logging.getLogger("surprisesage.main")
 
 
-def _check_ollama() -> bool:
-    """Quick health check for Ollama."""
-    try:
-        import ollama
-        ollama.list()
-        return True
-    except Exception:
-        return False
+def _check_llm_provider(profile: dict) -> bool:
+    """Quick health check for the configured LLM provider."""
+    import llm_provider
+    return llm_provider.check_provider_health(profile)
 
 
 def main() -> None:
@@ -36,16 +32,31 @@ def main() -> None:
         print("   Run:  python onboarding.py")
         sys.exit(1)
 
-    profile = load_profile()
+    # Wrap profile in a mutable container so hot-reload propagates to all closures
+    state = {"profile": load_profile()}
+    profile = state["profile"]
     user_name = profile.get("display_name", profile.get("name", "Friend"))
     logger.info("Profile loaded for '%s' (id=%s)", user_name, profile["user_id"])
 
-    # ── Ollama check ─────────────────────────────────────────────────────
-    if not _check_ollama():
-        logger.warning(
-            "Ollama is not reachable. Surprises will use fallback messages. "
-            "Start Ollama with: ollama serve"
-        )
+    # ── LLM provider check ────────────────────────────────────────────────
+    import llm_provider
+    llm_cfg = llm_provider.get_llm_config(profile)
+    if not _check_llm_provider(profile):
+        if llm_cfg["provider"] == "ollama":
+            logger.warning(
+                "Ollama is not reachable. Surprises will use fallback messages. "
+                "Start Ollama with: ollama serve"
+            )
+        else:
+            logger.warning(
+                "No API key found for provider '%s'. "
+                "Set it in user_profile.json (llm.api_key) or as env var %s",
+                llm_cfg["provider"],
+                llm_provider._PROVIDER_ENV_KEY.get(llm_cfg["provider"], ""),
+            )
+    else:
+        logger.info("LLM provider '%s' (model: %s) is ready",
+                     llm_cfg["provider"], llm_cfg["model"])
 
     # ── Core components ──────────────────────────────────────────────────
     memory = MemoryStore(profile["user_id"])
@@ -53,6 +64,7 @@ def main() -> None:
     # ── Surprise pipeline ─────────────────────────────────────────────
     def trigger_surprise(theme: str | None = None) -> None:
         try:
+            p = state["profile"]  # always use the latest reloaded profile
             context = get_active_context()
 
             if context.get("is_fullscreen"):
@@ -63,8 +75,8 @@ def main() -> None:
                 context.get("friendly_label", "general wisdom")
             )
 
-            prompt, vibe = build_surprise_prompt(profile, context, memories, theme=theme)
-            text, surprise_id = generate_surprise(prompt, profile, vibe)
+            prompt, vibe = build_surprise_prompt(p, context, memories, theme=theme)
+            text, surprise_id = generate_surprise(prompt, p, vibe)
 
             # Save to memory
             memory.save_memory(
@@ -97,10 +109,11 @@ def main() -> None:
     # Tray
     tray = SurpriseSageTray(
         scheduler=scheduler,
-        on_reload=lambda: _reload_profile(profile, scheduler, memory),
+        on_reload=lambda: _reload_profile(state, scheduler, memory),
         on_reshow=lambda text: show_popup(text, "reshow", lambda _s, _sc: None),
         on_themed_surprise=lambda theme: trigger_surprise(theme=theme),
         memory_stats=memory.get_stats,
+        llm_info=llm_cfg,
     )
 
     # Wire cleanup
@@ -113,10 +126,11 @@ def main() -> None:
     tray.run()   # This blocks forever
 
 
-def _reload_profile(current_profile: dict, scheduler: SurpriseScheduler, memory: MemoryStore) -> None:
-    """Hot-reload the user profile."""
+def _reload_profile(state: dict, scheduler: SurpriseScheduler, memory: MemoryStore) -> None:
+    """Hot-reload the user profile into the shared state container."""
     try:
         new_profile = load_profile()
+        state["profile"] = new_profile  # updates for all closures
         scheduler.reload_profile(new_profile)
         logger.info("Profile hot-reloaded successfully")
     except Exception:

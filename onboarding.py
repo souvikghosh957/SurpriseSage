@@ -83,6 +83,41 @@ def run_onboarding() -> None:
     except Exception:
         favorite_themes = themes[:]
 
+    # ── LLM Provider ──────────────────────────────────────────────────────
+    print("\n🤖 Which AI model should power your surprises?")
+    providers = [
+        ("ollama", "Ollama (local, free — requires Ollama installed)"),
+        ("grok", "Grok (x.ai — needs API key)"),
+        ("claude", "Claude (Anthropic — needs API key)"),
+        ("chatgpt", "ChatGPT (OpenAI — needs API key)"),
+        ("gemini", "Gemini (Google — needs API key)"),
+    ]
+    for i, (_, desc) in enumerate(providers, 1):
+        print(f" {i}. {desc}")
+
+    llm_choice = _ask("Enter number", "1")
+    try:
+        llm_idx = int(llm_choice.strip()) - 1
+        llm_provider_name = providers[llm_idx][0]
+    except (ValueError, IndexError):
+        llm_provider_name = "ollama"
+
+    llm_config = {"provider": llm_provider_name}
+
+    if llm_provider_name != "ollama":
+        from llm_provider import _DEFAULT_MODELS, _PROVIDER_ENV_KEY
+        default_model = _DEFAULT_MODELS.get(llm_provider_name, "")
+        model = _ask(f"Model name?", default_model)
+        llm_config["model"] = model
+
+        env_var = _PROVIDER_ENV_KEY.get(llm_provider_name, "")
+        print(f"\n   You'll need to set your API key.")
+        print(f"   Option A: Add to .env file →  {env_var}=your-key-here")
+        print(f"   Option B: Add to user_profile.json →  \"llm\": {{\"api_key\": \"...\"}}")
+        api_key = _ask("Paste API key now (or press Enter to set later)", "")
+        if api_key:
+            llm_config["api_key"] = api_key
+
     # ── Schedule ─────────────────────────────────────────────────────────
     print("\n⏰ Schedule settings")
     dnd_start = _ask("Do-Not-Disturb start time (HH:MM)?", "00:00")
@@ -132,6 +167,8 @@ def run_onboarding() -> None:
             "auto_cleanup_enabled": True,
             "run_every_days": 30,
         },
+
+        "llm": llm_config,
     }
 
     # ── Save ─────────────────────────────────────────────────────────────

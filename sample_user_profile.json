@@ -52,5 +52,35 @@
     "default_retention_days": 90,
     "auto_cleanup_enabled": true,
     "run_every_days": 30
+  },
+
+  "_llm_examples": {
+    "_comment": "Pick ONE of the examples below and rename the key to 'llm'",
+
+    "local_ollama": {
+      "provider": "ollama",
+      "model": "surprisesage:latest"
+    },
+    "grok": {
+      "provider": "grok",
+      "model": "grok-3-mini"
+    },
+    "claude": {
+      "provider": "claude",
+      "model": "claude-sonnet-4-6"
+    },
+    "chatgpt": {
+      "provider": "chatgpt",
+      "model": "gpt-4o"
+    },
+    "gemini": {
+      "provider": "gemini",
+      "model": "gemini-2.5-flash"
+    },
+    "custom_endpoint": {
+      "provider": "openai_compatible",
+      "model": "my-local-model",
+      "base_url": "http://localhost:8080/v1"
+    }
   }
 }

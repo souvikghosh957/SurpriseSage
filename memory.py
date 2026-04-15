@@ -6,30 +6,47 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import chromadb
-from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
 
 import config
 
 logger = logging.getLogger("surprisesage.memory")
 
 
+def _create_embedding_function():
+    """Create the best available embedding function.
+
+    Tries Ollama first (local, free). Falls back to ChromaDB's built-in
+    default (all-MiniLM-L6-v2) so memory works even without Ollama.
+    """
+    try:
+        from chromadb.utils.embedding_functions import OllamaEmbeddingFunction
+        import ollama
+        ollama.list()  # verify Ollama is reachable
+        logger.info("Using Ollama embeddings (%s)", config.EMBED_MODEL)
+        return OllamaEmbeddingFunction(
+            model_name=config.EMBED_MODEL,
+            url=config.OLLAMA_BASE_URL,
+        )
+    except Exception:
+        logger.info("Ollama not available for embeddings — using ChromaDB default (all-MiniLM-L6-v2)")
+        from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+        return DefaultEmbeddingFunction()
+
+
 class MemoryStore:
-    """Persistent vector memory backed by ChromaDB + Ollama embeddings."""
+    """Persistent vector memory backed by ChromaDB."""
 
     def __init__(self, user_id: str) -> None:
         self.user_id = user_id
         db_path = str(config.APP_DIR / f"surprisesage_memory_{user_id}")
 
         self._client = chromadb.PersistentClient(path=db_path)
-        self._ef = OllamaEmbeddingFunction(
-            model_name=config.EMBED_MODEL,
-            url=config.OLLAMA_BASE_URL,
-        )
+        self._ef = _create_embedding_function()
         self._collection = self._client.get_or_create_collection(
             name="memories",
             embedding_function=self._ef,
         )
-        logger.info("✅ MemoryStore initialized for user '%s' at %s", user_id, db_path)
+        logger.info("MemoryStore initialized for user '%s' at %s", user_id, db_path)
 
     # ── Write ────────────────────────────────────────────────────────────
 
@@ -157,12 +174,14 @@ class MemoryStore:
             return {"total_memories": 0, "error": "Failed to get stats"}
 
     def clear_all(self) -> int:
-        """⚠️ DANGER: Delete ALL memories. Returns count deleted."""
+        """DANGER: Delete ALL memories. Returns count deleted."""
         try:
-            count = self._collection.count()
-            self._collection.delete(where={})
-            logger.warning("🗑️ Cleared ALL %d memories", count)
-            return count
+            all_data = self._collection.get()
+            ids = all_data.get("ids", [])
+            if ids:
+                self._collection.delete(ids=ids)
+            logger.warning("Cleared ALL %d memories", len(ids))
+            return len(ids)
         except Exception:
             logger.exception("Failed to clear memory")
             return 0

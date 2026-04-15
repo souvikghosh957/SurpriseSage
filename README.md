@@ -17,7 +17,7 @@
   &nbsp;
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+"/>
   &nbsp;
-  <img src="https://img.shields.io/badge/AI-100%25_Local-2ea44f?style=for-the-badge" alt="100% Local AI"/>
+  <img src="https://img.shields.io/badge/AI-Local_or_Cloud-2ea44f?style=for-the-badge" alt="Local or Cloud AI"/>
   &nbsp;
   <img src="https://img.shields.io/badge/license-MIT-grey?style=for-the-badge" alt="MIT License"/>
 </p>
@@ -73,7 +73,7 @@ SurpriseSage is a **local-first AI companion** that lives in your Mac's menu bar
 
 **Beautiful & private**
 - Dark popup with gold accents, fade-in animation, progress bar
-- 100% local — your data never leaves your machine
+- Local-first by default — your data stays on your machine
 
 </td>
 </tr>
@@ -97,7 +97,7 @@ SurpriseSage is a **local-first AI companion** that lives in your Mac's menu bar
 | Feedback loop (thumbs up/down saves to memory) | **Done** |
 | Scheduled surprises (fixed + Poisson random) | **Done** |
 | DND hours, fullscreen skip | **Done** |
-| Cloud fallback via LiteLLM | Ready |
+| Multi-provider LLM support (Ollama, Grok, Claude, ChatGPT, Gemini) | **Done** |
 | Knowledge fetcher (stocks, sports, news) | Planned |
 | Chat mode | Planned |
 | Cross-platform (Windows/Linux) | Future |
@@ -118,8 +118,8 @@ SurpriseSage is a **local-first AI companion** that lives in your Mac's menu bar
 |:---|:---|:---|
 | **OS** | macOS | Apple Silicon recommended |
 | **Runtime** | Python 3.11+ | Check with `python3 --version` |
-| **AI** | [Ollama](https://ollama.com) | Local LLM runtime |
-| **RAM** | 16 GB+ | 27B model uses ~22 GB &mdash; see [smaller models](#-using-a-smaller-model) |
+| **AI** | [Ollama](https://ollama.com) *or* a cloud API key | Ollama for local; see [Cloud Providers](#-cloud-llm-providers) for alternatives |
+| **RAM** | 16 GB+ (local only) | 27B model uses ~22 GB &mdash; see [smaller models](#-using-a-smaller-model). Not needed for cloud providers |
 
 ### Installation
 
@@ -207,7 +207,7 @@ After making code changes locally, just run `./sagectl restart`. Pulling from re
   Prompt Builder          Goals + context + memories + theme + time-of-day
       │
       ▼
-  AI Brain (Ollama)       Generates a personalized surprise
+  LLM Provider            Generates a surprise (Ollama, Grok, Claude, ChatGPT, Gemini)
       │
       ▼
   Popup (CustomTkinter)   Shows it, collects your feedback
@@ -263,6 +263,56 @@ A sample is provided in [`sample_user_profile.json`](sample_user_profile.json).
 
 <br/>
 
+## &nbsp; Cloud LLM Providers
+
+SurpriseSage defaults to **Ollama** (local, free), but you can switch to any cloud provider with a one-line config change.
+
+**1. Add an `llm` section to `user_profile.json`:**
+
+```json
+"llm": {
+  "provider": "grok",
+  "model": "grok-3-mini"
+}
+```
+
+**2. Set your API key** (pick one method):
+
+```bash
+# Option A: .env file (recommended)
+cp .env.example .env
+# Edit .env and add your key
+
+# Option B: Environment variable
+export XAI_API_KEY="xai-your-key-here"
+```
+
+**3. Restart or hit Reload Profile** in the menu bar.
+
+<details>
+<summary><strong>Supported providers</strong></summary>
+
+<br/>
+
+| Provider | `provider` value | Default model | API key env var |
+|:---|:---|:---|:---|
+| Ollama (local) | `ollama` | `surprisesage:latest` | &mdash; |
+| Grok (x.ai) | `grok` | `grok-3-mini` | `XAI_API_KEY` |
+| Claude (Anthropic) | `claude` | `claude-sonnet-4-6` | `ANTHROPIC_API_KEY` |
+| ChatGPT (OpenAI) | `chatgpt` | `gpt-4o` | `OPENAI_API_KEY` |
+| Gemini (Google) | `gemini` | `gemini-2.5-flash` | `GEMINI_API_KEY` |
+| Any OpenAI-compatible | `openai_compatible` | &mdash; | `OPENAI_API_KEY` |
+
+You can also set `base_url` for self-hosted endpoints (e.g., vLLM, LM Studio).
+
+</details>
+
+<br/>
+
+---
+
+<br/>
+
 ## &nbsp; Using a Smaller Model
 
 Running on less than 24 GB RAM? Edit the `Modelfile`:
@@ -288,6 +338,7 @@ ollama create surprisesage -f Modelfile
 ```
 SurpriseSage/
 ├── surprisesage.py                  Main entry point
+├── llm_provider.py                  Multi-provider LLM abstraction
 ├── tray.py                          macOS system tray (rumps)
 ├── scheduler.py                     APScheduler triggers
 ├── prompt_builder.py                Dynamic prompt assembly + AI generation
@@ -299,6 +350,7 @@ SurpriseSage/
 ├── onboarding.py                    First-run CLI wizard
 ├── sagectl                          Service manager (start/stop/update)
 ├── Modelfile                        Ollama custom model definition
+├── .env.example                     API key template
 ├── sample_user_profile.json         Template profile
 └── requirements.txt                 Python dependencies
 ```
@@ -313,10 +365,10 @@ SurpriseSage/
 
 | | |
 |:---|:---|
-| **100% local** | No data leaves your machine — ever (unless you opt into cloud fallback) |
+| **Local by default** | No data leaves your machine unless you opt into a cloud LLM provider |
 | **Secure storage** | Memory stored in `~/.surprisesage/` with `chmod 700` permissions |
 | **No tracking** | Zero telemetry, zero analytics, zero cloud calls by default |
-| **Profile is gitignored** | Your `user_profile.json` stays local and private |
+| **Secrets protected** | `user_profile.json`, `.env`, and API keys are all gitignored |
 
 <br/>
 

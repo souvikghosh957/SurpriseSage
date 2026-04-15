@@ -6,9 +6,8 @@ import re
 import uuid
 from datetime import datetime
 
-import ollama
-
 import config
+import llm_provider
 
 logger = logging.getLogger("surprisesage.prompt")
 
@@ -224,16 +223,7 @@ def generate_surprise(
     system_prompt = _build_system_prompt(profile, personality_vibe)
 
     try:
-        response = ollama.chat(
-            model=config.MODEL_NAME,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            options={"num_predict": 300, "temperature": 0.82},
-            think=False,
-        )
-        text = response.message.content.strip()
+        text = llm_provider.generate(system_prompt, prompt, profile)
 
         # Clean up model artifacts — thinking tags, draft labels, etc.
         text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()

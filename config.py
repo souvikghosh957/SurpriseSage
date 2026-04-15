@@ -7,6 +7,12 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Dict
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / ".env")
+except ImportError:
+    pass  # python-dotenv not installed yet — env vars still work
+
 # ── App Paths ────────────────────────────────────────────────────────────
 APP_NAME = "surprisesage"
 APP_DIR = Path.home() / f".{APP_NAME}"

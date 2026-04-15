@@ -24,6 +24,7 @@ class SurpriseSageTray(rumps.App):
         on_reshow: Optional[Callable[[str], None]] = None,
         on_themed_surprise: Optional[Callable[[str], None]] = None,
         memory_stats: Optional[Callable[[], dict]] = None,
+        llm_info: Optional[dict] = None,
     ) -> None:
         super().__init__(
             name="SurpriseSage",
@@ -36,6 +37,7 @@ class SurpriseSageTray(rumps.App):
         self.on_reshow = on_reshow
         self.on_themed_surprise = on_themed_surprise
         self.memory_stats = memory_stats
+        self.llm_info = llm_info or {}
         self._paused = False
         self._pause_timer: Optional[threading.Timer] = None
 
@@ -43,6 +45,7 @@ class SurpriseSageTray(rumps.App):
         self._surprise_count = 0
         self._feedback_pos = 0
         self._feedback_neg = 0
+        self._session_start = datetime.now()
 
         # ── Submenus ──────────────────────────────────────────────────
         self._recent_menu = rumps.MenuItem("Recent Surprises")
@@ -188,11 +191,22 @@ class SurpriseSageTray(rumps.App):
             except Exception:
                 pass
 
+        uptime = datetime.now() - self._session_start
+        hours, remainder = divmod(int(uptime.total_seconds()), 3600)
+        mins = remainder // 60
+        uptime_str = f"{hours}h {mins}m" if hours else f"{mins}m"
+
+        llm_line = ""
+        if self.llm_info:
+            provider = self.llm_info.get("provider", "?")
+            model = self.llm_info.get("model", "?")
+            llm_line = f"\nLLM: {provider} / {model}"
+
         msg = (
             f"Surprises delivered: {total}\n"
             f"Loved: {loved}  |  Nah: {nah}  |  Dismissed: {dismissed}"
-            f"{mem_info}\n\n"
-            f"Session started: {datetime.now().strftime('%H:%M')}"
+            f"{mem_info}{llm_line}\n\n"
+            f"Session started: {self._session_start.strftime('%H:%M')} ({uptime_str} ago)"
         )
         rumps.alert(title="SurpriseSage Stats", message=msg)
 
