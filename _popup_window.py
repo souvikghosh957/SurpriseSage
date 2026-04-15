@@ -1,13 +1,14 @@
 """SurpriseSage — Standalone popup window (launched as subprocess).
 
-Top-left popup with:
+Premium-feel popup with:
 - Smooth fade-in/out + progress bar countdown
 - Click anywhere to pause/hold, click again to resume
-- Owl mascot header with gold accent
-- Feedback buttons
+- Clean typography with generous spacing
+- Feedback buttons with modern pill design
 """
 
 import json
+import platform
 import sys
 from pathlib import Path
 
@@ -21,24 +22,39 @@ import config
 POPUP_DURATION_MS = config.POPUP_DURATION_SEC * 1000
 POPUP_WIDTH = config.POPUP_WIDTH
 POPUP_ALPHA = config.POPUP_ALPHA
-POPUP_MIN_HEIGHT = 220
-POPUP_MAX_HEIGHT = 440
+POPUP_MIN_HEIGHT = 240
+POPUP_MAX_HEIGHT = 480
 PROGRESS_TICK_MS = 40
 
-# ── Colors ────────────────────────────────────────────────────────────────
-BG_DARK = "#0f0f14"
-BG_CARD = "#1a1a24"
-ACCENT_GOLD = "#d4a34a"
-TEXT_PRIMARY = "#ede9e3"
-TEXT_SECONDARY = "#9a9a9a"
-TEXT_MUTED = "#5a5a66"
-BTN_POSITIVE = "#2d6a4f"
-BTN_POSITIVE_HOVER = "#40916c"
-BTN_NEGATIVE = "#3a3a44"
-BTN_NEGATIVE_HOVER = "#52525e"
-PROGRESS_BG = "#22222c"
+# ── Colors — refined dark palette ─────────────────────────────────────────
+BG_DARK = "#0c0c10"
+BG_CARD = "#16161e"
+BG_CARD_INNER = "#1c1c28"        # subtle inner surface for message area
+ACCENT_GOLD = "#e8b84b"          # brighter, warmer gold
+ACCENT_GOLD_DIM = "#c49a3a"      # muted gold for secondary text
+TEXT_PRIMARY = "#f0ece4"          # warm off-white — easy on the eyes
+TEXT_SECONDARY = "#a8a8b0"
+TEXT_MUTED = "#5e5e6e"
+BTN_POSITIVE = "#1a7a52"
+BTN_POSITIVE_HOVER = "#22a06b"
+BTN_NEGATIVE = "#32323e"
+BTN_NEGATIVE_HOVER = "#48485a"
+BORDER_SUBTLE = "#2a2a3a"
+BORDER_GLOW = "#3a3550"          # faint purple-ish glow border
+PROGRESS_BG = "#1e1e2a"
 PROGRESS_FG = ACCENT_GOLD
-PAUSED_COLOR = "#e07850"        # warm orange when held
+PAUSED_COLOR = "#e07850"
+
+# ── Font helpers ──────────────────────────────────────────────────────────
+_IS_MAC = platform.system() == "Darwin"
+# Use the best available sans-serif for each platform
+FONT_FAMILY = "SF Pro Display" if _IS_MAC else "Segoe UI"
+FONT_BODY = "SF Pro Text" if _IS_MAC else "Segoe UI"
+FONT_MONO = "SF Mono" if _IS_MAC else "Cascadia Code"
+
+
+def _font(size: int, weight: str = "normal", family: str | None = None) -> ctk.CTkFont:
+    return ctk.CTkFont(family=family or FONT_FAMILY, size=size, weight=weight)
 
 
 def main() -> None:
@@ -63,7 +79,7 @@ def main() -> None:
     root.title("")
     root.overrideredirect(True)
     root.attributes("-topmost", True)
-    root.attributes("-alpha", 0.0)  # invisible for fade-in
+    root.attributes("-alpha", 0.0)
     root.configure(fg_color=BG_DARK)
 
     # ── Position: top-LEFT ────────────────────────────────────────────
@@ -75,42 +91,50 @@ def main() -> None:
     # ── Main card ─────────────────────────────────────────────────────
     card = ctk.CTkFrame(
         root,
-        corner_radius=16,
+        corner_radius=18,
         fg_color=BG_CARD,
         border_width=1,
-        border_color="#28283a",
+        border_color=BORDER_GLOW,
     )
-    card.pack(fill="both", expand=True, padx=5, pady=5)
+    card.pack(fill="both", expand=True, padx=6, pady=6)
 
     # ── Header: owl + name + status ───────────────────────────────────
     header = ctk.CTkFrame(card, fg_color="transparent")
-    header.pack(fill="x", padx=20, pady=(14, 0))
+    header.pack(fill="x", padx=24, pady=(18, 0))
 
     ctk.CTkLabel(
         header,
         text="\U0001f989",
-        font=ctk.CTkFont(size=22),
+        font=_font(24),
     ).pack(side="left")
 
+    # App name — use letter-spacing feel via slightly larger font
     ctk.CTkLabel(
         header,
-        text="SurpriseSage",
-        font=ctk.CTkFont(size=13, weight="bold"),
+        text="Surprise Sage",
+        font=_font(14, "bold"),
         text_color=ACCENT_GOLD,
-    ).pack(side="left", padx=(8, 0))
+    ).pack(side="left", padx=(10, 0))
 
     status_label = ctk.CTkLabel(
         header,
         text="just now",
-        font=ctk.CTkFont(size=11),
+        font=_font(11, family=FONT_MONO),
         text_color=TEXT_MUTED,
     )
     status_label.pack(side="right")
 
-    # ── Separator ─────────────────────────────────────────────────────
-    ctk.CTkFrame(card, fg_color="#28283a", height=1).pack(
-        fill="x", padx=18, pady=(10, 0)
+    # ── Thin accent line ──────────────────────────────────────────────
+    accent_bar = ctk.CTkFrame(card, fg_color=ACCENT_GOLD, height=1)
+    accent_bar.pack(fill="x", padx=24, pady=(14, 0))
+
+    # ── Message area with inner surface ───────────────────────────────
+    msg_frame = ctk.CTkFrame(
+        card,
+        fg_color=BG_CARD_INNER,
+        corner_radius=12,
     )
+    msg_frame.pack(fill="both", expand=True, padx=16, pady=(12, 0))
 
     # ── Message: split greeting from body ─────────────────────────────
     greeting = ""
@@ -127,42 +151,42 @@ def main() -> None:
 
     if greeting:
         ctk.CTkLabel(
-            card,
+            msg_frame,
             text=greeting,
-            font=ctk.CTkFont(size=15, weight="bold"),
+            font=_font(16, "bold"),
             text_color=ACCENT_GOLD,
             anchor="w",
-        ).pack(padx=22, pady=(12, 0), anchor="w")
+        ).pack(padx=16, pady=(14, 0), anchor="w")
 
     body_label = ctk.CTkLabel(
-        card,
+        msg_frame,
         text=body,
-        font=ctk.CTkFont(size=14),
-        wraplength=POPUP_WIDTH - 70,
+        font=_font(15, family=FONT_BODY),
+        wraplength=POPUP_WIDTH - 90,
         justify="left",
         text_color=TEXT_PRIMARY,
         anchor="nw",
     )
     body_label.pack(
-        padx=22, pady=(6 if greeting else 12, 0), anchor="w", fill="both", expand=True
+        padx=16, pady=(8 if greeting else 14, 14), anchor="w", fill="both", expand=True
     )
 
-    # ── Pause hint (shown when hovered / held) ────────────────────────
+    # ── Pause hint (shown when held) ──────────────────────────────────
     hint_label = ctk.CTkLabel(
         card,
         text="",
-        font=ctk.CTkFont(size=10),
+        font=_font(10, family=FONT_MONO),
         text_color=TEXT_MUTED,
         anchor="w",
     )
-    hint_label.pack(padx=22, pady=(4, 0), anchor="w")
+    hint_label.pack(padx=24, pady=(6, 0), anchor="w")
 
-    # ── Buttons ───────────────────────────────────────────────────────
+    # ── Buttons — modern pill style ───────────────────────────────────
     btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-    btn_frame.pack(fill="x", padx=18, pady=(10, 0))
+    btn_frame.pack(fill="x", padx=20, pady=(10, 0))
 
     def fade_out(step: int = 0) -> None:
-        steps = 8
+        steps = 10
         if step >= steps:
             try:
                 root.destroy()
@@ -172,7 +196,7 @@ def main() -> None:
         alpha = POPUP_ALPHA * (1 - step / steps)
         try:
             root.attributes("-alpha", max(alpha, 0))
-            root.after(30, lambda: fade_out(step + 1))
+            root.after(25, lambda: fade_out(step + 1))
         except Exception:
             try:
                 root.destroy()
@@ -190,10 +214,10 @@ def main() -> None:
     ctk.CTkButton(
         btn_frame,
         text="\u2764\ufe0f  Love it",
-        width=110,
-        height=34,
-        corner_radius=8,
-        font=ctk.CTkFont(size=13, weight="bold"),
+        width=115,
+        height=36,
+        corner_radius=18,
+        font=_font(13, "bold", FONT_BODY),
         fg_color=BTN_POSITIVE,
         hover_color=BTN_POSITIVE_HOVER,
         command=lambda: send_feedback(1),
@@ -203,9 +227,9 @@ def main() -> None:
         btn_frame,
         text="\U0001f44e  Nah",
         width=90,
-        height=34,
-        corner_radius=8,
-        font=ctk.CTkFont(size=13),
+        height=36,
+        corner_radius=18,
+        font=_font(13, family=FONT_BODY),
         fg_color=BTN_NEGATIVE,
         hover_color=BTN_NEGATIVE_HOVER,
         command=lambda: send_feedback(-1),
@@ -214,27 +238,27 @@ def main() -> None:
     ctk.CTkButton(
         btn_frame,
         text="Dismiss",
-        width=80,
-        height=34,
-        corner_radius=8,
-        font=ctk.CTkFont(size=12),
+        width=85,
+        height=36,
+        corner_radius=18,
+        font=_font(12, family=FONT_BODY),
         fg_color="transparent",
-        hover_color="#2a2a34",
+        hover_color="#242430",
         border_width=1,
-        border_color="#3a3a44",
+        border_color=BORDER_SUBTLE,
         text_color=TEXT_SECONDARY,
         command=fade_out,
     ).pack(side="right")
 
-    # ── Progress bar ──────────────────────────────────────────────────
+    # ── Progress bar — slim accent ────────────────────────────────────
     progress_bar = ctk.CTkProgressBar(
         card,
-        height=3,
-        corner_radius=0,
+        height=2,
+        corner_radius=1,
         fg_color=PROGRESS_BG,
         progress_color=PROGRESS_FG,
     )
-    progress_bar.pack(fill="x", side="bottom", pady=(12, 0))
+    progress_bar.pack(fill="x", side="bottom", padx=18, pady=(14, 8))
     progress_bar.set(1.0)
 
     # ── Progress tick ─────────────────────────────────────────────────
@@ -256,13 +280,12 @@ def main() -> None:
     # ── Click-to-hold / click-to-resume ───────────────────────────────
     def toggle_pause(event=None) -> None:
         if state["paused"]:
-            # Resume
             state["paused"] = False
             progress_bar.configure(progress_color=PROGRESS_FG)
-            status_label.configure(text="just now")
+            status_label.configure(text="just now", text_color=TEXT_MUTED)
             hint_label.configure(text="")
+            accent_bar.configure(fg_color=ACCENT_GOLD)
         else:
-            # Pause
             state["paused"] = True
             progress_bar.configure(progress_color=PAUSED_COLOR)
             status_label.configure(text="\u23f8 held", text_color=PAUSED_COLOR)
@@ -270,6 +293,7 @@ def main() -> None:
                 text="click anywhere to resume",
                 text_color=TEXT_MUTED,
             )
+            accent_bar.configure(fg_color=PAUSED_COLOR)
 
     # Bind click-to-hold on the card and all children
     def _bind_recursive(widget) -> None:
@@ -281,24 +305,22 @@ def main() -> None:
     root.update_idletasks()
     card.update_idletasks()
 
-    req_h = card.winfo_reqheight() + 14  # card padding
+    req_h = card.winfo_reqheight() + 16
     total_h = max(POPUP_MIN_HEIGHT, min(req_h, POPUP_MAX_HEIGHT))
     root.geometry(f"{POPUP_WIDTH}x{total_h}+{x_pos}+{y_pos}")
 
     # Bind pause AFTER layout so buttons still get their own clicks first
-    # We bind on card background and non-button widgets
-    for widget in [card, header, body_label, hint_label]:
+    for widget in [card, header, body_label, hint_label, msg_frame]:
         widget.bind("<Button-1>", toggle_pause, add="+")
     if greeting:
-        # greeting label is packed in card — find it
-        for child in card.winfo_children():
+        for child in msg_frame.winfo_children():
             if isinstance(child, ctk.CTkLabel) and child.cget("text") == greeting:
                 child.bind("<Button-1>", toggle_pause, add="+")
                 break
 
     # ── Fade in ───────────────────────────────────────────────────────
     def fade_in(step: int = 0) -> None:
-        steps = 10
+        steps = 12
         if step >= steps:
             try:
                 root.attributes("-alpha", POPUP_ALPHA)
@@ -309,7 +331,7 @@ def main() -> None:
         alpha = POPUP_ALPHA * (step / steps)
         try:
             root.attributes("-alpha", alpha)
-            root.after(25, lambda: fade_in(step + 1))
+            root.after(22, lambda: fade_in(step + 1))
         except Exception:
             pass
 

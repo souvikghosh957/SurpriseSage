@@ -31,8 +31,8 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 # ── UI / Popup ───────────────────────────────────────────────────────────
 POPUP_DURATION_SEC = 18          # How long the popup stays visible
-POPUP_WIDTH = 420
-POPUP_ALPHA = 0.96
+POPUP_WIDTH = 440
+POPUP_ALPHA = 0.97
 
 # ── Themes ───────────────────────────────────────────────────────────────
 THEMES = [
