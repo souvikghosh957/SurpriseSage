@@ -46,7 +46,12 @@ THEMES = [
 ]
 
 # ── Scheduling ───────────────────────────────────────────────────────────
-POISSON_MEAN_HOURS = 2.5          # Average gap between random surprises (~4-5 random/day)
+FREQUENCY_PRESETS: Dict[str, float] = {
+    "low": 4.0,         # ~2-3 random/day
+    "medium": 2.5,      # ~4-5 random/day
+    "high": 1.5,        # ~7-8 random/day
+}
+POISSON_MEAN_HOURS = 2.5          # Default (overridden by profile frequency)
 MIN_RANDOM_GAP_MINUTES = 20       # Minimum gap between random surprises
 DND_DEFAULT = {"start": "00:00", "end": "07:00"}
 DEFAULT_FIXED_TIMES = ["08:00", "13:00", "18:00", "21:30"]

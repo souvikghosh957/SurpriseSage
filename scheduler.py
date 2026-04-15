@@ -59,9 +59,15 @@ class SurpriseScheduler:
             return
         self.trigger_callback()
 
+    def _get_poisson_mean(self) -> float:
+        """Get the Poisson mean hours from the profile's frequency setting."""
+        freq = self.profile.get("schedule", {}).get("frequency", "medium")
+        return config.FREQUENCY_PRESETS.get(freq, config.POISSON_MEAN_HOURS)
+
     def _next_random_time(self) -> datetime:
         """Compute next random trigger time using Poisson (exponential)."""
-        gap_hours = random.expovariate(1 / config.POISSON_MEAN_HOURS)
+        mean = self._get_poisson_mean()
+        gap_hours = random.expovariate(1 / mean)
         gap_hours = max(gap_hours, config.MIN_RANDOM_GAP_MINUTES / 60)
         return datetime.now() + timedelta(hours=gap_hours)
 
