@@ -27,9 +27,9 @@ PROGRESS_TICK_MS = 40
 
 # Pixel math for wraplength:
 #   popup 460 - root padx 2×4=8 - card border 2 - scroll padx 2×12=24
-#   - scrollbar 14 - text padx 2×16=32 = 380px safe wrap
-_TEXT_WRAP = 380
-_TEXT_WRAP_DEEP = 370       # slightly less for deep dive (scrollbar always visible)
+#   - scrollbar ~18 - text padx 2×16=32 - extra safety 6 = 370px safe wrap
+_TEXT_WRAP = 350
+_TEXT_WRAP_DEEP = 340       # slightly less for deep dive (scrollbar always visible)
 
 # ── Colors ────────────────────────────────────────────────────────────────
 BG = "#0e0e14"
@@ -156,7 +156,7 @@ def main() -> None:
         scroll, text=body, font=_f(14, fam=_TEXT),
         wraplength=wrap, justify="left", text_color=WHITE, anchor="nw",
     )
-    body_lbl.pack(padx=16, pady=(6 if greeting else 12, 12), anchor="w", fill="x")
+    body_lbl.pack(padx=(16, 20), pady=(6 if greeting else 12, 12), anchor="w", fill="x")
 
     # ── Hint (below message, above buttons) ───────────────────────────
     hint.pack(padx=20, pady=(3, 0), anchor="w")
