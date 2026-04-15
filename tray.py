@@ -1,9 +1,11 @@
 """SurpriseSage — macOS menu bar (system tray) application."""
 
+import json
 import logging
 import threading
 from collections import deque
-from datetime import datetime
+from datetime import datetime, date
+from pathlib import Path
 from typing import Callable, Optional
 
 import rumps
@@ -46,6 +48,10 @@ class SurpriseSageTray(rumps.App):
         self._feedback_pos = 0
         self._feedback_neg = 0
         self._session_start = datetime.now()
+
+        # Streak tracking
+        self._streak_file = config.APP_DIR / "streak.json"
+        self._streak_data = self._load_streak()
 
         # ── Submenus ──────────────────────────────────────────────────
         self._recent_menu = rumps.MenuItem("Recent Surprises")
@@ -95,6 +101,7 @@ class SurpriseSageTray(rumps.App):
         timestamp = datetime.now().strftime("%H:%M")
         self._recent.appendleft((timestamp, text))
         self._surprise_count += 1
+        self._update_streak()
         self._rebuild_recent_menu()
 
     def record_feedback(self, score: int) -> None:
@@ -103,6 +110,54 @@ class SurpriseSageTray(rumps.App):
             self._feedback_pos += 1
         elif score < 0:
             self._feedback_neg += 1
+
+    # ── Streak tracking ──────────────────────────────────────────────
+
+    def _load_streak(self) -> dict:
+        """Load streak data from disk."""
+        try:
+            if self._streak_file.exists():
+                with open(self._streak_file, "r") as f:
+                    return json.load(f)
+        except Exception:
+            pass
+        return {"current_streak": 0, "best_streak": 0, "last_active_date": None, "total_days": 0}
+
+    def _save_streak(self) -> None:
+        """Persist streak data to disk."""
+        try:
+            with open(self._streak_file, "w") as f:
+                json.dump(self._streak_data, f)
+        except Exception:
+            logger.debug("Failed to save streak data")
+
+    def _update_streak(self) -> None:
+        """Update streak based on today's engagement."""
+        today_str = date.today().isoformat()
+        last = self._streak_data.get("last_active_date")
+
+        if last == today_str:
+            return  # already counted today
+
+        yesterday = (date.today().toordinal() - 1)
+        if last:
+            try:
+                last_date = date.fromisoformat(last)
+                if last_date.toordinal() == yesterday:
+                    self._streak_data["current_streak"] += 1
+                else:
+                    self._streak_data["current_streak"] = 1
+            except ValueError:
+                self._streak_data["current_streak"] = 1
+        else:
+            self._streak_data["current_streak"] = 1
+
+        self._streak_data["last_active_date"] = today_str
+        self._streak_data["total_days"] = self._streak_data.get("total_days", 0) + 1
+        if self._streak_data["current_streak"] > self._streak_data.get("best_streak", 0):
+            self._streak_data["best_streak"] = self._streak_data["current_streak"]
+
+        self._save_streak()
 
     def _rebuild_recent_menu(self) -> None:
         """Safely rebuild the Recent Surprises submenu."""
@@ -202,9 +257,20 @@ class SurpriseSageTray(rumps.App):
             model = self.llm_info.get("model", "?")
             llm_line = f"\nLLM: {provider} / {model}"
 
+        streak = self._streak_data.get("current_streak", 0)
+        best = self._streak_data.get("best_streak", 0)
+        total_days = self._streak_data.get("total_days", 0)
+        streak_line = f"\n\nStreak: {streak} day{'s' if streak != 1 else ''}"
+        if streak >= 7:
+            streak_line += " (on fire!)"
+        elif streak >= 3:
+            streak_line += " (nice!)"
+        streak_line += f"  |  Best: {best}  |  Total days: {total_days}"
+
         msg = (
             f"Surprises delivered: {total}\n"
             f"Loved: {loved}  |  Nah: {nah}  |  Dismissed: {dismissed}"
+            f"{streak_line}"
             f"{mem_info}{llm_line}\n\n"
             f"Session started: {self._session_start.strftime('%H:%M')} ({uptime_str} ago)"
         )

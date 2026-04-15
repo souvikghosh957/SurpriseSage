@@ -31,7 +31,7 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 
 # ── UI / Popup ───────────────────────────────────────────────────────────
 POPUP_DURATION_SEC = 30          # How long the popup stays visible
-POPUP_WIDTH = 440
+POPUP_WIDTH = 460
 POPUP_ALPHA = 0.97
 
 # ── Themes ───────────────────────────────────────────────────────────────
@@ -109,6 +109,7 @@ DEFAULT_PROFILE: Dict[str, Any] = {
         "location": "",
         "family": "",
         "hobbies": "building software, reading, walking",
+        "birthday": "",  # Format: MM-DD (e.g., "03-15" for March 15)
     },
 
     "preferences": {

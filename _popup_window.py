@@ -1,10 +1,10 @@
 """SurpriseSage — Standalone popup window (launched as subprocess).
 
-Premium-feel popup with:
-- Smooth fade-in/out + progress bar countdown
-- Click anywhere to pause/hold, click again to resume
-- Clean typography with generous spacing
-- Feedback buttons with modern pill design
+Clean quote-card design:
+- Minimal layout, maximum readability
+- Smooth fade-in/out + progress bar
+- Click anywhere to pause, click again to resume
+- Scrollable for longer deep-dive text
 """
 
 import json
@@ -14,47 +14,52 @@ from pathlib import Path
 
 import customtkinter as ctk
 
-# Import config for shared constants (popup runs as subprocess, so we import directly)
 sys.path.insert(0, str(Path(__file__).parent))
 import config
 
-# ── Configuration (derived from config.py) ────────────────────────────────
-POPUP_DURATION_MS = config.POPUP_DURATION_SEC * 1000
+# ── Layout constants ──────────────────────────────────────────────────────
 POPUP_WIDTH = config.POPUP_WIDTH
+POPUP_MIN_HEIGHT = 200
+POPUP_MAX_HEIGHT = 600
 POPUP_ALPHA = config.POPUP_ALPHA
-POPUP_MIN_HEIGHT = 240
-POPUP_MAX_HEIGHT = 480
+POPUP_DURATION_MS = config.POPUP_DURATION_SEC * 1000
 PROGRESS_TICK_MS = 40
 
-# ── Colors — refined dark palette ─────────────────────────────────────────
-BG_DARK = "#0c0c10"
-BG_CARD = "#16161e"
-BG_CARD_INNER = "#1c1c28"        # subtle inner surface for message area
-ACCENT_GOLD = "#e8b84b"          # brighter, warmer gold
-ACCENT_GOLD_DIM = "#c49a3a"      # muted gold for secondary text
-TEXT_PRIMARY = "#f0ece4"          # warm off-white — easy on the eyes
-TEXT_SECONDARY = "#a8a8b0"
-TEXT_MUTED = "#5e5e6e"
-BTN_POSITIVE = "#1a7a52"
-BTN_POSITIVE_HOVER = "#22a06b"
-BTN_NEGATIVE = "#32323e"
-BTN_NEGATIVE_HOVER = "#48485a"
-BORDER_SUBTLE = "#2a2a3a"
-BORDER_GLOW = "#3a3550"          # faint purple-ish glow border
-PROGRESS_BG = "#1e1e2a"
-PROGRESS_FG = ACCENT_GOLD
-PAUSED_COLOR = "#e07850"
+# Pixel math for wraplength:
+#   popup 460 - root padx 2×4=8 - card border 2 - scroll padx 2×12=24
+#   - scrollbar 14 - text padx 2×16=32 = 380px safe wrap
+_TEXT_WRAP = 380
+_TEXT_WRAP_DEEP = 370       # slightly less for deep dive (scrollbar always visible)
 
-# ── Font helpers ──────────────────────────────────────────────────────────
-_IS_MAC = platform.system() == "Darwin"
-# Use the best available sans-serif for each platform
-FONT_FAMILY = "SF Pro Display" if _IS_MAC else "Segoe UI"
-FONT_BODY = "SF Pro Text" if _IS_MAC else "Segoe UI"
-FONT_MONO = "SF Mono" if _IS_MAC else "Cascadia Code"
+# ── Colors ────────────────────────────────────────────────────────────────
+BG = "#0e0e14"
+CARD = "#17171f"
+CARD_MSG = "#1c1c26"
+GOLD = "#e8b84b"
+WHITE = "#f2efe8"
+GRAY = "#9a9aa6"
+DIM = "#55556a"
+GREEN = "#1d7d55"
+GREEN_H = "#25a06d"
+DARK = "#2e2e3c"
+DARK_H = "#3e3e50"
+BLUE = "#2c4e72"
+BLUE_H = "#3c6090"
+BORDER = "#2c2c3c"
+GLOW = "#342e4a"
+PROG_BG = "#1e1e2c"
+PAUSE = "#e07850"
+COPIED = "#25a06d"
+
+# ── Fonts ─────────────────────────────────────────────────────────────────
+_MAC = platform.system() == "Darwin"
+_DISPLAY = "SF Pro Display" if _MAC else "Segoe UI"
+_TEXT = "SF Pro Text" if _MAC else "Segoe UI"
+_MONO = "SF Mono" if _MAC else "Cascadia Code"
 
 
-def _font(size: int, weight: str = "normal", family: str | None = None) -> ctk.CTkFont:
-    return ctk.CTkFont(family=family or FONT_FAMILY, size=size, weight=weight)
+def _f(size: int, weight: str = "normal", fam: str | None = None) -> ctk.CTkFont:
+    return ctk.CTkFont(family=fam or _DISPLAY, size=size, weight=weight)
 
 
 def main() -> None:
@@ -64,276 +69,240 @@ def main() -> None:
 
     message = sys.argv[1]
     surprise_id = sys.argv[2]
+    is_deep = surprise_id.startswith("deep_")
+    duration = POPUP_DURATION_MS * 2 if is_deep else POPUP_DURATION_MS
+    wrap = _TEXT_WRAP_DEEP if is_deep else _TEXT_WRAP
 
-    # ── State ─────────────────────────────────────────────────────────
-    state = {
-        "elapsed_ms": 0,
-        "paused": False,
-        "feedback_sent": False,
-    }
+    state = {"elapsed_ms": 0, "paused": False, "sent": False}
 
-    # ── Window setup ──────────────────────────────────────────────────
+    # ── Window ────────────────────────────────────────────────────────
     ctk.set_appearance_mode("dark")
-
     root = ctk.CTk()
     root.title("")
     root.overrideredirect(True)
     root.attributes("-topmost", True)
     root.attributes("-alpha", 0.0)
-    root.configure(fg_color=BG_DARK)
-
-    # ── Position: top-LEFT ────────────────────────────────────────────
-    x_pos = 24
-    y_pos = 48
-    root.geometry(f"{POPUP_WIDTH}x{POPUP_MIN_HEIGHT}+{x_pos}+{y_pos}")
+    root.configure(fg_color=BG)
+    root.geometry(f"{POPUP_WIDTH}x{POPUP_MIN_HEIGHT}+24+48")
     root.update_idletasks()
 
-    # ── Main card ─────────────────────────────────────────────────────
-    card = ctk.CTkFrame(
-        root,
-        corner_radius=18,
-        fg_color=BG_CARD,
-        border_width=1,
-        border_color=BORDER_GLOW,
+    # ── Card ──────────────────────────────────────────────────────────
+    card = ctk.CTkFrame(root, corner_radius=16, fg_color=CARD,
+                        border_width=1, border_color=GLOW)
+    card.pack(fill="both", expand=True, padx=4, pady=4)
+
+    # ── Header — clean: owl + title ··· copy icon ─────────────────────
+    hdr = ctk.CTkFrame(card, fg_color="transparent")
+    hdr.pack(fill="x", padx=20, pady=(14, 0))
+
+    ctk.CTkLabel(hdr, text="\U0001f989", font=_f(18)).pack(side="left")
+
+    title = "Surprise Sage  \u00b7  Deep Dive" if is_deep else "Surprise Sage"
+    ctk.CTkLabel(hdr, text=title, font=_f(13, "bold"),
+                 text_color=GOLD).pack(side="left", padx=(8, 0))
+
+    # Copy icon — top right
+    cp_lbl = ctk.CTkLabel(hdr, text="\U0001f4cb", font=_f(14),
+                          text_color=DIM, cursor="hand2")
+    cp_lbl.pack(side="right")
+
+    # Hint label — reused for "copied", "held", "brewing..."
+    hint = ctk.CTkLabel(card, text="", font=_f(10, fam=_MONO),
+                        text_color=DIM, anchor="w")
+
+    def _copy(event=None):
+        root.clipboard_clear()
+        root.clipboard_append(message)
+        root.update()
+        cp_lbl.configure(text="\u2713", text_color=COPIED)
+        hint.configure(text="copied!", text_color=COPIED)
+        root.after(1500, lambda: (
+            cp_lbl.configure(text="\U0001f4cb", text_color=DIM),
+            hint.configure(text=""),
+        ))
+    cp_lbl.bind("<Button-1>", _copy)
+
+    # ── Gold line ─────────────────────────────────────────────────────
+    bar = ctk.CTkFrame(card, fg_color=GOLD, height=1)
+    bar.pack(fill="x", padx=20, pady=(10, 0))
+
+    # ── Message area (scrollable) ─────────────────────────────────────
+    scroll = ctk.CTkScrollableFrame(
+        card, fg_color=CARD_MSG, corner_radius=10,
+        scrollbar_button_color=BORDER, scrollbar_button_hover_color=DIM,
     )
-    card.pack(fill="both", expand=True, padx=6, pady=6)
+    scroll.pack(fill="both", expand=True, padx=12, pady=(8, 0))
 
-    # ── Header: owl + name + status ───────────────────────────────────
-    header = ctk.CTkFrame(card, fg_color="transparent")
-    header.pack(fill="x", padx=24, pady=(18, 0))
-
-    ctk.CTkLabel(
-        header,
-        text="\U0001f989",
-        font=_font(24),
-    ).pack(side="left")
-
-    # App name — use letter-spacing feel via slightly larger font
-    ctk.CTkLabel(
-        header,
-        text="Surprise Sage",
-        font=_font(14, "bold"),
-        text_color=ACCENT_GOLD,
-    ).pack(side="left", padx=(10, 0))
-
-    status_label = ctk.CTkLabel(
-        header,
-        text="just now",
-        font=_font(11, family=FONT_MONO),
-        text_color=TEXT_MUTED,
-    )
-    status_label.pack(side="right")
-
-    # ── Thin accent line ──────────────────────────────────────────────
-    accent_bar = ctk.CTkFrame(card, fg_color=ACCENT_GOLD, height=1)
-    accent_bar.pack(fill="x", padx=24, pady=(14, 0))
-
-    # ── Message area with inner surface ───────────────────────────────
-    msg_frame = ctk.CTkFrame(
-        card,
-        fg_color=BG_CARD_INNER,
-        corner_radius=12,
-    )
-    msg_frame.pack(fill="both", expand=True, padx=16, pady=(12, 0))
-
-    # ── Message: split greeting from body ─────────────────────────────
+    # ── Parse greeting + body ─────────────────────────────────────────
     greeting = ""
     body = message
     if message.startswith("Hey "):
-        lines = message.split("\n", 1)
-        if len(lines) == 2:
-            greeting = lines[0]
-            body = lines[1].strip()
-        elif "," in lines[0]:
-            comma_idx = lines[0].index(",")
-            greeting = lines[0][: comma_idx + 1]
-            body = lines[0][comma_idx + 1 :].strip()
+        parts = message.split("\n", 1)
+        if len(parts) == 2:
+            greeting = parts[0]
+            body = parts[1].strip()
+        elif "," in parts[0]:
+            ci = parts[0].index(",")
+            greeting = parts[0][:ci + 1]
+            body = parts[0][ci + 1:].strip()
 
     if greeting:
         ctk.CTkLabel(
-            msg_frame,
-            text=greeting,
-            font=_font(16, "bold"),
-            text_color=ACCENT_GOLD,
-            anchor="w",
-        ).pack(padx=16, pady=(14, 0), anchor="w")
+            scroll, text=greeting, font=_f(14, "bold"),
+            text_color=GOLD, wraplength=wrap, justify="left", anchor="w",
+        ).pack(padx=16, pady=(12, 0), anchor="w")
 
-    body_label = ctk.CTkLabel(
-        msg_frame,
-        text=body,
-        font=_font(15, family=FONT_BODY),
-        wraplength=POPUP_WIDTH - 90,
-        justify="left",
-        text_color=TEXT_PRIMARY,
-        anchor="nw",
+    body_lbl = ctk.CTkLabel(
+        scroll, text=body, font=_f(14, fam=_TEXT),
+        wraplength=wrap, justify="left", text_color=WHITE, anchor="nw",
     )
-    body_label.pack(
-        padx=16, pady=(8 if greeting else 14, 14), anchor="w", fill="both", expand=True
-    )
+    body_lbl.pack(padx=16, pady=(6 if greeting else 12, 12), anchor="w", fill="x")
 
-    # ── Pause hint (shown when held) ──────────────────────────────────
-    hint_label = ctk.CTkLabel(
-        card,
-        text="",
-        font=_font(10, family=FONT_MONO),
-        text_color=TEXT_MUTED,
-        anchor="w",
-    )
-    hint_label.pack(padx=24, pady=(6, 0), anchor="w")
+    # ── Hint (below message, above buttons) ───────────────────────────
+    hint.pack(padx=20, pady=(3, 0), anchor="w")
 
-    # ── Buttons — modern pill style ───────────────────────────────────
-    btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-    btn_frame.pack(fill="x", padx=20, pady=(10, 0))
+    # ── Buttons ───────────────────────────────────────────────────────
+    btns = ctk.CTkFrame(card, fg_color="transparent")
+    btns.pack(fill="x", padx=16, pady=(6, 0))
 
-    def fade_out(step: int = 0) -> None:
-        steps = 10
-        if step >= steps:
-            try:
-                root.destroy()
-            except Exception:
-                pass
+    def fade_out(step=0):
+        if step >= 10:
+            try: root.destroy()
+            except: pass
             return
-        alpha = POPUP_ALPHA * (1 - step / steps)
         try:
-            root.attributes("-alpha", max(alpha, 0))
+            root.attributes("-alpha", max(POPUP_ALPHA * (1 - step / 10), 0))
             root.after(25, lambda: fade_out(step + 1))
-        except Exception:
-            try:
-                root.destroy()
-            except Exception:
-                pass
+        except:
+            try: root.destroy()
+            except: pass
 
-    def send_feedback(score: int) -> None:
-        if state["feedback_sent"]:
+    def send(score, reason=""):
+        if state["sent"]:
             return
-        state["feedback_sent"] = True
-        print(json.dumps({"surprise_id": surprise_id, "score": score}))
+        state["sent"] = True
+        d = {"surprise_id": surprise_id, "score": score}
+        if reason:
+            d["reason"] = reason
+        print(json.dumps(d))
         sys.stdout.flush()
-        fade_out()
+        if score == 1:
+            _on_love()
+        else:
+            fade_out()
+
+    def _on_love():
+        for w in btns.winfo_children():
+            w.pack_forget()
+        ctk.CTkLabel(btns, text="\u2728  Glad you loved it!",
+                     font=_f(12, "bold", _TEXT), text_color=GOLD).pack(side="left")
+        if not is_deep:
+            ctk.CTkButton(
+                btns, text="Tell me more", width=110, height=28,
+                corner_radius=14, font=_f(11, "bold", _TEXT),
+                fg_color=BLUE, hover_color=BLUE_H, command=_deep,
+            ).pack(side="left", padx=(10, 0))
+        root.after(5000, fade_out)
+
+    def _deep():
+        if not state.get("deep_sent"):
+            state["deep_sent"] = True
+            print(json.dumps({"surprise_id": surprise_id, "action": "deep_dive",
+                               "original_text": message}))
+            sys.stdout.flush()
+            hint.configure(text="brewing a deeper surprise...", text_color=GOLD)
+
+    def _nah_reasons():
+        if state["sent"]:
+            return
+        for w in btns.winfo_children():
+            w.pack_forget()
+        ctk.CTkLabel(btns, text="What missed?", font=_f(10, fam=_TEXT),
+                     text_color=DIM).pack(side="left", padx=(0, 8))
+        for lbl, r in [("Obvious", "too_obvious"), ("Knew it", "already_knew"), ("Off topic", "not_relevant")]:
+            ctk.CTkButton(
+                btns, text=lbl, width=68, height=26, corner_radius=13,
+                font=_f(11, fam=_TEXT), fg_color=DARK, hover_color=DARK_H,
+                command=lambda r=r: send(-1, r),
+            ).pack(side="left", padx=(0, 4))
+
+    # Primary buttons
+    ctk.CTkButton(
+        btns, text="\u2764\ufe0f  Love it", width=100, height=32, corner_radius=16,
+        font=_f(12, "bold", _TEXT), fg_color=GREEN, hover_color=GREEN_H,
+        command=lambda: send(1),
+    ).pack(side="left", padx=(0, 6))
 
     ctk.CTkButton(
-        btn_frame,
-        text="\u2764\ufe0f  Love it",
-        width=115,
-        height=36,
-        corner_radius=18,
-        font=_font(13, "bold", FONT_BODY),
-        fg_color=BTN_POSITIVE,
-        hover_color=BTN_POSITIVE_HOVER,
-        command=lambda: send_feedback(1),
-    ).pack(side="left", padx=(0, 8))
+        btns, text="Nah", width=50, height=32, corner_radius=16,
+        font=_f(12, fam=_TEXT), fg_color=DARK, hover_color=DARK_H,
+        command=_nah_reasons,
+    ).pack(side="left")
 
     ctk.CTkButton(
-        btn_frame,
-        text="\U0001f44e  Nah",
-        width=90,
-        height=36,
-        corner_radius=18,
-        font=_font(13, family=FONT_BODY),
-        fg_color=BTN_NEGATIVE,
-        hover_color=BTN_NEGATIVE_HOVER,
-        command=lambda: send_feedback(-1),
-    ).pack(side="left", padx=(0, 8))
-
-    ctk.CTkButton(
-        btn_frame,
-        text="Dismiss",
-        width=85,
-        height=36,
-        corner_radius=18,
-        font=_font(12, family=FONT_BODY),
-        fg_color="transparent",
-        hover_color="#242430",
-        border_width=1,
-        border_color=BORDER_SUBTLE,
-        text_color=TEXT_SECONDARY,
-        command=fade_out,
+        btns, text="\u00d7", width=32, height=32, corner_radius=16,
+        font=_f(14, fam=_TEXT), fg_color="transparent", hover_color="#242430",
+        border_width=1, border_color=BORDER, text_color=DIM, command=fade_out,
     ).pack(side="right")
 
-    # ── Progress bar — slim accent ────────────────────────────────────
-    progress_bar = ctk.CTkProgressBar(
-        card,
-        height=2,
-        corner_radius=1,
-        fg_color=PROGRESS_BG,
-        progress_color=PROGRESS_FG,
-    )
-    progress_bar.pack(fill="x", side="bottom", padx=18, pady=(14, 8))
-    progress_bar.set(1.0)
+    # ── Progress bar ──────────────────────────────────────────────────
+    prog = ctk.CTkProgressBar(card, height=2, corner_radius=1,
+                              fg_color=PROG_BG, progress_color=GOLD)
+    prog.pack(fill="x", side="bottom", padx=16, pady=(8, 6))
+    prog.set(1.0)
 
-    # ── Progress tick ─────────────────────────────────────────────────
-    def tick() -> None:
+    # ── Tick ──────────────────────────────────────────────────────────
+    def tick():
         if state["paused"]:
             root.after(PROGRESS_TICK_MS, tick)
             return
         state["elapsed_ms"] += PROGRESS_TICK_MS
-        remaining = max(0.0, 1.0 - state["elapsed_ms"] / POPUP_DURATION_MS)
-        try:
-            progress_bar.set(remaining)
-        except Exception:
-            return
-        if remaining <= 0:
+        rem = max(0.0, 1.0 - state["elapsed_ms"] / duration)
+        try: prog.set(rem)
+        except: return
+        if rem <= 0:
             fade_out()
         else:
             root.after(PROGRESS_TICK_MS, tick)
 
-    # ── Click-to-hold / click-to-resume ───────────────────────────────
-    def toggle_pause(event=None) -> None:
+    # ── Pause toggle ──────────────────────────────────────────────────
+    def toggle(event=None):
         if state["paused"]:
             state["paused"] = False
-            progress_bar.configure(progress_color=PROGRESS_FG)
-            status_label.configure(text="just now", text_color=TEXT_MUTED)
-            hint_label.configure(text="")
-            accent_bar.configure(fg_color=ACCENT_GOLD)
+            prog.configure(progress_color=GOLD)
+            hint.configure(text="")
+            bar.configure(fg_color=GOLD)
         else:
             state["paused"] = True
-            progress_bar.configure(progress_color=PAUSED_COLOR)
-            status_label.configure(text="\u23f8 held", text_color=PAUSED_COLOR)
-            hint_label.configure(
-                text="click anywhere to resume",
-                text_color=TEXT_MUTED,
-            )
-            accent_bar.configure(fg_color=PAUSED_COLOR)
+            prog.configure(progress_color=PAUSE)
+            hint.configure(text="click anywhere to resume", text_color=DIM)
+            bar.configure(fg_color=PAUSE)
 
-    # Bind click-to-hold on the card and all children
-    def _bind_recursive(widget) -> None:
-        widget.bind("<Button-1>", toggle_pause, add="+")
-        for child in widget.winfo_children():
-            _bind_recursive(child)
-
-    # ── Compute height and finalize ───────────────────────────────────
+    # ── Finalize size ─────────────────────────────────────────────────
     root.update_idletasks()
     card.update_idletasks()
+    h = max(POPUP_MIN_HEIGHT, min(card.winfo_reqheight() + 12, POPUP_MAX_HEIGHT))
+    root.geometry(f"{POPUP_WIDTH}x{h}+24+48")
 
-    req_h = card.winfo_reqheight() + 16
-    total_h = max(POPUP_MIN_HEIGHT, min(req_h, POPUP_MAX_HEIGHT))
-    root.geometry(f"{POPUP_WIDTH}x{total_h}+{x_pos}+{y_pos}")
-
-    # Bind pause AFTER layout so buttons still get their own clicks first
-    for widget in [card, header, body_label, hint_label, msg_frame]:
-        widget.bind("<Button-1>", toggle_pause, add="+")
+    for w in [card, hdr, body_lbl, hint, scroll]:
+        w.bind("<Button-1>", toggle, add="+")
     if greeting:
-        for child in msg_frame.winfo_children():
-            if isinstance(child, ctk.CTkLabel) and child.cget("text") == greeting:
-                child.bind("<Button-1>", toggle_pause, add="+")
+        for ch in scroll.winfo_children():
+            if isinstance(ch, ctk.CTkLabel) and ch.cget("text") == greeting:
+                ch.bind("<Button-1>", toggle, add="+")
                 break
 
     # ── Fade in ───────────────────────────────────────────────────────
-    def fade_in(step: int = 0) -> None:
-        steps = 12
-        if step >= steps:
-            try:
-                root.attributes("-alpha", POPUP_ALPHA)
-            except Exception:
-                pass
+    def fade_in(step=0):
+        if step >= 12:
+            try: root.attributes("-alpha", POPUP_ALPHA)
+            except: pass
             root.after(150, tick)
             return
-        alpha = POPUP_ALPHA * (step / steps)
         try:
-            root.attributes("-alpha", alpha)
+            root.attributes("-alpha", POPUP_ALPHA * step / 12)
             root.after(22, lambda: fade_in(step + 1))
-        except Exception:
-            pass
+        except: pass
 
     root.after(50, fade_in)
     root.mainloop()

@@ -20,11 +20,12 @@ def show_popup(
     message: str,
     surprise_id: str,
     on_feedback: Callable[[str, int], None],
+    on_deep_dive: Callable[[str], None] | None = None,
 ) -> None:
     """
     Launch the CustomTkinter popup as a separate process.
     This avoids Tkinter conflicts with rumps (menu bar).
-    Feedback is returned via stdout as JSON.
+    Feedback is returned via stdout as JSON (may be multiple lines).
     """
     try:
         proc = subprocess.Popen(
@@ -45,18 +46,36 @@ def show_popup(
         # Listen for feedback in background thread
         def _listen_for_feedback() -> None:
             try:
-                stdout, stderr = proc.communicate(timeout=config.POPUP_DURATION_SEC + 15)
+                stdout, stderr = proc.communicate(timeout=config.POPUP_DURATION_SEC + 30)
 
                 if stdout:
-                    try:
-                        data = json.loads(stdout.strip())
+                    for line in stdout.strip().splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+
+                        # Handle deep dive request
+                        if data.get("action") == "deep_dive" and on_deep_dive:
+                            original = data.get("original_text", message)
+                            on_deep_dive(original)
+                            logger.info("Deep dive requested for surprise %s", surprise_id[:8])
+                            continue
+
+                        # Handle feedback
                         sid = data.get("surprise_id")
                         score = data.get("score")
+                        reason = data.get("reason", "")
                         if sid and score is not None:
                             on_feedback(sid, score)
-                            logger.info("Feedback received: %+d for surprise %s", score, sid[:8])
-                    except json.JSONDecodeError:
-                        logger.debug("Popup closed without button feedback (dismissed)")
+                            reason_log = f" (reason: {reason})" if reason else ""
+                            logger.info(
+                                "Feedback received: %+d for surprise %s%s",
+                                score, sid[:8], reason_log,
+                            )
                 else:
                     logger.debug("Popup timed out or was dismissed")
 

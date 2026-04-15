@@ -79,18 +79,23 @@ class MemoryStore:
         return doc_id
 
     def save_feedback(
-        self, surprise_id: str, score: int, surprise_text: str
+        self, surprise_id: str, score: int, surprise_text: str,
+        reason: str = "",
     ) -> None:
         """Save user feedback (+1 or -1) linked to a surprise."""
+        meta = {
+            "surprise_id": surprise_id,
+            "feedback_score": score,
+        }
+        if reason:
+            meta["feedback_reason"] = reason
         self.save_memory(
             text=surprise_text,
             category="feedback",
-            metadata={
-                "surprise_id": surprise_id,
-                "feedback_score": score,
-            },
+            metadata=meta,
         )
-        logger.info("Feedback saved: surprise=%s score=%+d", surprise_id[:8], score)
+        logger.info("Feedback saved: surprise=%s score=%+d%s",
+                     surprise_id[:8], score, f" reason={reason}" if reason else "")
 
     # ── Read ─────────────────────────────────────────────────────────────
 
@@ -158,6 +163,40 @@ class MemoryStore:
         except Exception:
             logger.exception("Memory cleanup failed")
             return 0
+
+    # ── Feedback analysis ────────────────────────────────────────────────
+
+    def get_feedback_summary(self) -> dict[str, int]:
+        """Return net feedback scores per theme/topic from stored feedback.
+
+        Scans feedback memories and returns {theme_keyword: net_score}.
+        Positive = user loved it, negative = user disliked it.
+        """
+        try:
+            results = self._collection.get(
+                where={"category": "feedback"},
+                include=["documents", "metadatas"],
+            )
+        except Exception:
+            logger.exception("Failed to get feedback summary")
+            return {}
+
+        if not results or not results.get("ids"):
+            return {}
+
+        scores: dict[str, int] = {}
+        from config import THEMES
+        for doc, meta in zip(results["documents"], results["metadatas"]):
+            score = meta.get("feedback_score", 0)
+            if not score:
+                continue
+            text_lower = (doc or "").lower()
+            for theme in THEMES:
+                # Check if any word from the theme appears in the surprise text
+                keywords = theme.replace("_", " ").split()
+                if any(kw in text_lower for kw in keywords):
+                    scores[theme] = scores.get(theme, 0) + score
+        return scores
 
     # ── Utility ──────────────────────────────────────────────────────────
 
