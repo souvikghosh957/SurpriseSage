@@ -75,8 +75,8 @@ def main() -> None:
                 context.get("friendly_label", "general wisdom")
             )
 
-            prompt, vibe = build_surprise_prompt(p, context, memories, theme=theme)
-            text, surprise_id = generate_surprise(prompt, p, vibe)
+            prompt, vibe, fmt = build_surprise_prompt(p, context, memories, theme=theme)
+            text, surprise_id = generate_surprise(prompt, p, vibe, fmt)
 
             # Save to memory
             memory.save_memory(

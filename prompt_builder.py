@@ -1,4 +1,12 @@
-"""SurpriseSage — dynamic prompt assembly and AI surprise generation."""
+"""SurpriseSage — dynamic prompt assembly and AI surprise generation.
+
+Builds premium, varied micro-surprises by combining:
+  - User profile (goals, details, tone)
+  - Real-time macOS context (active app, time of day)
+  - RAG memory (recent surprises, feedback)
+  - Randomized surprise "formats" for variety
+  - Rich theme-specific hints grounded in real people and stories
+"""
 
 import logging
 import random
@@ -11,127 +19,294 @@ import llm_provider
 
 logger = logging.getLogger("surprisesage.prompt")
 
-# ── Theme-specific flavor text for richer prompts ─────────────────────────
+# ── Surprise formats — varied angles so every surprise feels fresh ────────────
+_SURPRISE_FORMATS: list[str] = [
+    "Tell a real story most people have never heard about someone from this theme. The kind of thing that makes you say 'no way, that actually happened?'",
+    "Share a fact that flips a common assumption on its head. Something counter-intuitive and real. Make the user rethink something they took for granted.",
+    "Ask the user a thought-provoking question inspired by this theme. Not a quiz — a question that sticks in your head for the next hour.",
+    "Connect what the user is doing RIGHT NOW to something unexpected from this theme. Draw a fun, surprising parallel they'd never see coming.",
+    "Share how something legendary actually started — small, messy, or by accident. The bigger the contrast between the beginning and the outcome, the better.",
+    "Share someone's real last words, farewell letter, or final act from this theme. The kind of moment that gives you chills. Then connect it forward.",
+    "Drop one jaw-dropping number or statistic from this theme. Let the number do the heavy lifting, then tie it to the user's world.",
+    "Share a beautiful, simple idea from this theme that changes how you see everyday life. Not a lecture — just a perspective shift in two sentences.",
+]
+
+# ── Theme-specific flavor text for richer prompts ────────────────────────────
 _THEME_HINTS: dict[str, str] = {
     "philosophy": (
         "Draw from thinkers like Seneca, Epicurus, Lao Tzu, Rumi, Confucius, "
-        "Dostoevsky, Nietzsche, Camus, Kafka, Simone de Beauvoir, or Gandhi. "
-        "Use a real quote or a striking philosophical idea."
+        "Dostoevsky, Nietzsche, Camus, Kafka, Simone de Beauvoir, Kierkegaard, "
+        "Wittgenstein, Hannah Arendt, or Gandhi. Use a real quote, a paradox, "
+        "or a striking thought experiment. Go deep, not obvious."
     ),
     "indian_mythology": (
-        "Draw from the Mahabharata, Ramayana, Bhagavad Gita, Upanishads, or stories of "
-        "Shiva, Krishna, Arjuna, Karna, Draupadi, Hanuman, Chanakya, Eklavya, Bhishma, "
-        "or Vivekananda. Use a real story or teaching."
+        "Draw from the Mahabharata, Ramayana, Bhagavad Gita, Upanishads, Puranas, "
+        "or stories of Shiva, Krishna, Arjuna, Karna, Draupadi, Hanuman, Chanakya, "
+        "Eklavya, Bhishma, Savitri, Nachiketa, Garuda, or Vivekananda. "
+        "Use lesser-known episodes — not the obvious ones everyone knows. "
+        "The Mahabharata alone has 100,000 verses; find the hidden gems."
     ),
     "tech_innovation": (
-        "Draw from the real stories of Steve Jobs, Elon Musk, Ada Lovelace, Alan Turing, "
-        "Nikola Tesla, the Wright Brothers, Grace Hopper, Linus Torvalds, Dennis Ritchie, "
-        "Hedy Lamarr, or Sam Altman. Use a real anecdote or lesser-known fact."
+        "Draw from real stories of Steve Jobs, Ada Lovelace, Alan Turing, Nikola Tesla, "
+        "Grace Hopper, Linus Torvalds, Dennis Ritchie, Margaret Hamilton, Hedy Lamarr, "
+        "Ken Thompson, Tim Berners-Lee, Vint Cerf, or Claude Shannon. Include the "
+        "messy, human side — the failures, the late nights, the accidents that became inventions."
     ),
     "stoic_wisdom": (
-        "Draw from Marcus Aurelius (Meditations), Epictetus (Discourses), Seneca (Letters), "
-        "Zeno of Citium, or Cato the Younger. Use a real Stoic quote or principle."
+        "Draw from Marcus Aurelius (Meditations), Epictetus (Discourses), Seneca (Letters "
+        "to Lucilius), Zeno of Citium, Cato the Younger, Musonius Rufus, or Cleanthes. "
+        "Use a real Stoic quote or principle, but apply it to modern life in a way that "
+        "feels fresh — not the same 'memento mori' everyone posts on Instagram."
     ),
     "science_breakthroughs": (
         "Draw from real breakthroughs — Feynman, Marie Curie, Darwin, Hawking, "
-        "Srinivasa Ramanujan, Einstein, Rosalind Franklin, Nikola Tesla, CV Raman, "
-        "or APJ Abdul Kalam. Use a real fact or discovery story."
+        "Srinivasa Ramanujan, Einstein, Rosalind Franklin, CV Raman, Chandrasekhar, "
+        "Barbara McClintock, Vera Rubin, APJ Abdul Kalam, Emmy Noether, or Satyendra "
+        "Nath Bose. Focus on the human story behind the discovery — the doubt, "
+        "the accident, the moment of 'eureka'."
     ),
     "entrepreneurship": (
         "Draw from founders like Dhirubhai Ambani, Narayana Murthy, Sara Blakely, "
-        "Jeff Bezos (garage days), Jack Ma (rejected 30 times), Phil Knight (Nike), "
-        "or Ratan Tata. Use a real founder story."
+        "Jeff Bezos (garage days), Jack Ma (rejected 30 times), Phil Knight (selling "
+        "shoes from his car), Ratan Tata, Kiran Mazumdar-Shaw, Elon Musk (sleeping in "
+        "the factory), or James Dyson (5,126 failed prototypes). Use the raw, gritty "
+        "early days — not the polished success story."
     ),
     "sports_grit": (
-        "Draw from athletes like Sourav Ganguly (the Dada of Indian cricket), "
-        "Kobe Bryant (Mamba Mentality), Sachin Tendulkar, Michael Jordan, "
-        "MS Dhoni (ticket collector to World Cup captain), Usain Bolt, or Neeraj Chopra. "
-        "Use a real sports moment or lesser-known story."
+        "Draw from Sourav Ganguly (the Lord's balcony moment), Kobe Bryant (4 AM workouts), "
+        "Sachin Tendulkar (desert storm innings), Michael Jordan (cut from high school team), "
+        "MS Dhoni (ticket collector to World Cup helicopter shot), Usain Bolt, Neeraj Chopra, "
+        "Simone Biles (the Twisties), Muhammad Ali (the Rumble in the Jungle), "
+        "PV Sindhu, or Milkha Singh. Use a specific, vivid moment — not generic motivation."
+    ),
+    "psychology_and_mind": (
+        "Draw from real cognitive science — the Dunning-Kruger effect, flow states "
+        "(Csikszentmihalyi), the Zeigarnik effect (unfinished tasks haunt you), Kahneman's "
+        "System 1/2 thinking, the mere exposure effect, sunk cost fallacy, the Baader-Meinhof "
+        "phenomenon, or neuroplasticity research. Share something that makes the user see "
+        "their own mind differently."
+    ),
+    "art_and_creativity": (
+        "Draw from Michelangelo (4 years on his back painting the Sistine Chapel), "
+        "Frida Kahlo, Van Gogh (sold one painting in his lifetime), Hokusai (said he "
+        "understood nothing at 73), Picasso, Rabindranath Tagore, M.F. Husain, "
+        "Da Vinci's notebooks, Basquiat, or Yayoi Kusama. Focus on the creative "
+        "struggle, the obsession, the moment art broke through."
+    ),
+    "history_turning_points": (
+        "Draw from moments that changed everything — the fall of Constantinople, "
+        "the printing press, India's 1947 midnight hour, the moon landing, "
+        "the invention of zero (India), the Library of Alexandria's destruction, "
+        "Gutenberg, the French Revolution, the fall of the Berlin Wall, "
+        "or the day the internet went live. Focus on the human story inside the big event."
+    ),
+    "space_and_cosmos": (
+        "Draw from Voyager's Golden Record, the Pale Blue Dot (Sagan), Apollo 13, "
+        "ISRO's Mangalyaan (Mars mission cheaper than a Hollywood movie), Hubble Deep "
+        "Field, black hole photography (Katie Bouman), Kalpana Chawla, Valentina "
+        "Tereshkova, the Fermi Paradox, neutron stars, or the overview effect. "
+        "Make the user feel the scale — then bring it back to something personal."
+    ),
+    "music_and_soul": (
+        "Draw from Beethoven composing while deaf, AR Rahman's journey from Chennai "
+        "to Oscars, Bob Dylan going electric (and getting booed), Nina Simone, "
+        "Nusrat Fateh Ali Khan, Ravi Shankar teaching George Harrison, Mozart's "
+        "final Requiem, Freddie Mercury's last recordings, Kishore Kumar, "
+        "or the neuroscience of why music gives us chills. Connect sound to soul."
+    ),
+    "leadership_lessons": (
+        "Draw from Chanakya's Arthashastra, Lincoln (Team of Rivals), Shackleton "
+        "(Endurance expedition — lost the ship, saved every life), Subhas Chandra "
+        "Bose, Mandela (27 years then forgiveness), Indira Gandhi, Genghis Khan's "
+        "meritocracy, or Satya Nadella's transformation of Microsoft. "
+        "Focus on one specific decision or moment that defined the leader."
+    ),
+    "rebel_thinkers": (
+        "Draw from people who said 'no' when the world said 'yes' — Galileo, "
+        "Socrates (drank the hemlock), Bhagat Singh, Rosa Parks, Aaron Swartz, "
+        "Hypatia of Alexandria, Alan Turing (persecuted then pardoned), Savitribai "
+        "Phule (India's first female teacher, had stones thrown at her), Giordano Bruno, "
+        "or Edward Snowden. Celebrate the cost of thinking differently."
+    ),
+    "nature_and_evolution": (
+        "Draw from the real wonders of biology — octopuses editing their own RNA, "
+        "tardigrades surviving in space, mycelium networks ('the wood wide web'), "
+        "the axolotl regrowing its brain, whales singing across ocean basins, "
+        "crows using tools, the 4-billion-year story of DNA, or the biomimicry "
+        "behind Velcro, bullet trains (kingfisher beak), and self-healing concrete. "
+        "Nature has already solved most of our problems."
     ),
 }
 
-# ── Time-of-day awareness ─────────────────────────────────────────────────
+# ── Time-of-day awareness ────────────────────────────────────────────────────
 def _get_time_context() -> tuple[str, str]:
     """Return (time description for user prompt, personality vibe for system prompt)."""
     hour = datetime.now().hour
-    weekday = datetime.now().strftime("%A")  # "Monday", "Friday", etc.
+    weekday = datetime.now().strftime("%A")
 
-    if hour < 6:
-        desc = "It's late night / very early morning — the user is up late."
-        vibe = "Be gentle, understanding, and impressed they're still going. Short and warm."
-    elif hour < 10:
-        desc = f"It's {weekday} morning — a fresh start to the day."
-        vibe = "Be energetic and motivational. Fire them up for the day ahead."
+    # ── Fine-grained time slots ──────────────────────────────────────
+    if hour < 5:
+        # Late night / very early morning (midnight–5 AM)
+        desc = "It's the dead of night — the user is up while the world sleeps."
+        vibe = (
+            "Whisper-mode. Be gentle, a little awed they're still going. "
+            "This is the hour for deep thoughts, not hustle talk. "
+            "Share something quiet and profound — the kind of thing "
+            "that only lands at 3 AM."
+        )
+    elif hour < 7:
+        # Early morning (5–7 AM)
+        desc = f"It's early {weekday} morning — the user is up before most people."
+        vibe = (
+            "They're an early riser today. Be calm and grounding — "
+            "not loud, not hyper. A gentle spark to start the day. "
+            "Think sunrise energy, not alarm-clock energy."
+        )
+    elif hour < 9:
+        # Morning (7–9 AM)
+        desc = f"It's {weekday} morning — the day is just getting started."
+        vibe = (
+            "Morning fuel. Be warm and energizing — one insight they "
+            "can carry into the day like a good cup of coffee. "
+            "Set the tone, don't overwhelm."
+        )
+    elif hour < 11:
+        # Late morning (9–11 AM)
+        desc = f"It's {weekday} late morning — the user is likely in work mode."
+        vibe = (
+            "They're in the zone. Be sharp and punchy — respect their focus. "
+            "A quick hit of brilliance, then get out of the way. "
+            "Think espresso shot, not full lecture."
+        )
     elif hour < 13:
-        desc = f"It's {weekday} late morning — the user is likely deep in work."
-        vibe = "Be focused and sharp. Respect their flow — deliver something punchy."
+        # Noon (11 AM–1 PM)
+        desc = f"It's around noon on {weekday} — midday energy."
+        vibe = (
+            "Midday check-in. Be bright and interesting — "
+            "they might be taking a break or about to eat. "
+            "Something fun and easy to digest. Light but smart."
+        )
     elif hour < 15:
-        desc = f"It's {weekday} early afternoon — post-lunch energy dip."
-        vibe = "Be light and playful. Give them a quick spark to fight the slump."
-    elif hour < 18:
+        # Early afternoon (1–3 PM)
+        desc = f"It's {weekday} early afternoon — the post-lunch dip."
+        vibe = (
+            "The afternoon slump is real. Be playful and surprising — "
+            "wake them up with something they didn't expect. "
+            "This is the time for 'wait, really?' facts."
+        )
+    elif hour < 17:
+        # Afternoon (3–5 PM)
         desc = f"It's {weekday} afternoon — the productive stretch."
-        vibe = "Be encouraging and forward-looking. They're in the zone."
+        vibe = (
+            "They're pushing through the day. Be encouraging and forward-looking. "
+            "Give them fuel for the final stretch. Something that makes the grind "
+            "feel worth it."
+        )
+    elif hour < 19:
+        # Early evening (5–7 PM)
+        desc = f"It's {weekday} early evening — wrapping up the day."
+        vibe = (
+            "The workday is winding down. Be warm and reflective — "
+            "help them transition from work-mode to life-mode. "
+            "Something personal, not professional."
+        )
     elif hour < 21:
-        desc = f"It's {weekday} evening — winding down or doing personal work."
-        vibe = "Be reflective and warm. Help them appreciate what they've done today."
+        # Evening (7–9 PM)
+        desc = f"It's {weekday} evening — personal time."
+        vibe = (
+            "Evening mode. Be relaxed, warm, maybe a little philosophical. "
+            "This is their time — with family, with themselves. "
+            "Share something that makes the evening feel richer."
+        )
+    elif hour < 23:
+        # Night (9–11 PM)
+        desc = f"It's {weekday} night — the day is almost done."
+        vibe = (
+            "Night-mode. Be calm and introspective. The kind of thought "
+            "you'd share sitting on a balcony at night. "
+            "Philosophical, personal, maybe a little poetic."
+        )
     else:
-        desc = f"It's {weekday} night — the user might be reflecting or working late."
-        vibe = "Be calm, philosophical, and introspective. Night-mode wisdom."
+        # Late night (11 PM–midnight)
+        desc = f"It's late {weekday} night — the world is getting quiet."
+        vibe = (
+            "Late night energy. Be intimate and thoughtful. "
+            "They're still up — maybe working, maybe thinking. "
+            "Share something that feels like a conversation between friends "
+            "at midnight."
+        )
 
-    # Special day-of-week flavor
+    # ── Day-of-week flavor ───────────────────────────────────────────
     if weekday == "Monday" and hour < 12:
-        vibe += " It's Monday — give them a strong 'let's conquer the week' energy."
+        vibe += " It's Monday morning — set the tone for the whole week. Strong but not preachy."
+    elif weekday == "Monday" and hour >= 17:
+        vibe += " Monday evening — they made it through day one. Acknowledge that."
+    elif weekday == "Wednesday":
+        vibe += " It's midweek — they're in the thick of it. Be their second wind."
+    elif weekday == "Friday" and hour < 12:
+        vibe += " Friday morning — the finish line is in sight. Keep the energy up."
     elif weekday == "Friday" and hour >= 17:
-        vibe += " It's Friday evening — celebrate the week. Be warm and congratulatory."
-    elif weekday in ("Saturday", "Sunday"):
-        vibe += " It's the weekend — be relaxed, fun, and personal. No work pressure."
+        vibe += " Friday evening — the week is done. Celebrate. Be warm and congratulatory."
+    elif weekday == "Saturday":
+        vibe += " It's Saturday — no hustle talk. Be fun, be human, be personal. Weekend vibes."
+    elif weekday == "Sunday" and hour < 17:
+        vibe += " Sunday — recharge day. Be gentle and restorative. No pressure."
+    elif weekday == "Sunday" and hour >= 17:
+        vibe += " Sunday evening — the week is about to start. Be grounding, not anxiety-inducing."
 
     return desc, vibe
 
 
-def _build_system_prompt(profile: dict, personality_vibe: str = "") -> str:
-    """Build the system prompt dynamically using profile data. No hardcoding."""
+def _build_system_prompt(profile: dict, personality_vibe: str = "", surprise_format: str = "") -> str:
+    """Build a system prompt that produces friendly, readable, insightful surprises."""
     display_name = profile.get("display_name", profile.get("name", "Friend"))
     tone = profile.get("tone", "warm, slightly cheeky wise companion who feels like a fun older brother")
 
-    vibe_line = f"\nCurrent vibe: {personality_vibe}" if personality_vibe else ""
+    vibe_line = f"\nMood right now: {personality_vibe}" if personality_vibe else ""
+    format_line = f"\nStyle to use: {surprise_format}" if surprise_format else ""
 
     return f"""You are SurpriseSage — a {tone}.
 
-You are talking to {display_name}. You know them well and care about their journey.
+You're talking to {display_name}, someone you genuinely care about. Write like a smart friend sharing something cool over chai — simple words, big ideas, warm delivery.
 {vibe_line}
+{format_line}
 
-Rules you MUST follow:
-- Start your response with: "Hey {display_name},"
-- Structure: ONE powerful quote/anecdote/fact + ONE warm sentence connecting it to the user's life
-- Total response: under 60 words
-- Tone: warm, playful, slightly cheeky — like a wise older brother giving a gentle nudge
-- Use ONLY the context and details provided in the user message
-- NEVER fabricate details about the user that aren't in the prompt
-- NEVER output thinking, reasoning, tags, or internal monologue
-- Output ONLY the final surprise — nothing else
-- Do NOT repeat quotes or stories from the "Recent surprises" section
-- Each surprise must feel fresh and different from the last"""
+How to write the surprise:
+1. Start with "Hey {display_name},"
+2. Share ONE real story, fact, quote, or insight — something specific and true
+3. Connect it to their life with a warm, personal line
+4. Done. That's the whole response.
+
+The golden rules:
+- Write 50 to 80 WORDS. Not characters — words. Count them. This is important.
+- Use simple, everyday language. If a 15-year-old can't understand it, rewrite it.
+- Take complex, beautiful ideas from any field and explain them simply.
+- Be specific. "Ramanujan mailed 120 theorems to Hardy on 11 pages" beats "Ramanujan was a genius."
+- Make them go "wait, really?" — surprise them, don't just motivate them.
+- No jargon, no fancy vocabulary, no academic tone. Just clear and warm.
+- Use ONLY facts about the user given in the prompt — never make things up.
+- Do NOT repeat anything from the "Recent surprises" list.
+- Output ONLY the surprise text. No thinking, no preamble, no labels, no tags."""
 
 
 def _pick_context_aware_theme(context: dict, favorites: list[str]) -> str:
     """Pick a theme that fits what the user is doing right now."""
     label = context.get("friendly_label", "")
 
-    # Context-to-theme affinity — nudge toward relevant themes when possible
     affinities: dict[str, list[str]] = {
-        "coding": ["tech_innovation", "entrepreneurship", "stoic_wisdom"],
-        "in the terminal": ["tech_innovation", "science_breakthroughs"],
-        "browsing the web": ["philosophy", "science_breakthroughs"],
-        "listening to music": ["philosophy", "indian_mythology"],
-        "watching something": ["sports_grit", "philosophy"],
-        "chatting": ["stoic_wisdom", "philosophy"],
-        "designing": ["tech_innovation", "entrepreneurship"],
-        "writing notes": ["philosophy", "stoic_wisdom"],
+        "coding": ["tech_innovation", "science_breakthroughs", "rebel_thinkers", "psychology_and_mind"],
+        "in the terminal": ["tech_innovation", "science_breakthroughs", "nature_and_evolution"],
+        "browsing the web": ["philosophy", "history_turning_points", "psychology_and_mind", "space_and_cosmos"],
+        "listening to music": ["music_and_soul", "art_and_creativity", "philosophy"],
+        "watching something": ["sports_grit", "art_and_creativity", "history_turning_points"],
+        "chatting": ["stoic_wisdom", "philosophy", "psychology_and_mind", "leadership_lessons"],
+        "designing": ["art_and_creativity", "tech_innovation", "nature_and_evolution"],
+        "writing notes": ["philosophy", "stoic_wisdom", "psychology_and_mind", "rebel_thinkers"],
+        "chatting with AI": ["tech_innovation", "science_breakthroughs", "philosophy", "rebel_thinkers"],
+        "reading a document": ["philosophy", "history_turning_points", "science_breakthroughs"],
     }
 
     preferred = affinities.get(label, [])
-    # 40% chance to use context-aware theme, 60% pure random (keeps variety)
     if preferred and random.random() < 0.4:
         candidates = [t for t in preferred if t in favorites]
         if candidates:
@@ -145,8 +320,11 @@ def build_surprise_prompt(
     context: dict,
     memories: list[dict],
     theme: str | None = None,
-) -> tuple[str, str]:
-    """Build the full user prompt. Returns (prompt_text, personality_vibe)."""
+) -> tuple[str, str, str]:
+    """Build the full user prompt.
+
+    Returns (prompt_text, personality_vibe, surprise_format).
+    """
     favorites = profile.get("preferences", {}).get("favorite_themes", config.THEMES)
     chosen_theme = theme or _pick_context_aware_theme(context, favorites)
 
@@ -154,13 +332,15 @@ def build_surprise_prompt(
     goals = profile.get("goals", [])
     details = profile.get("personal_details", {})
 
+    # Pick a random surprise format for variety
+    surprise_format = random.choice(_SURPRISE_FORMATS)
+
     parts: list[str] = []
 
     # ── User context ──────────────────────────────────────────────────
     parts.append(f"User: {display_name}")
 
     if goals:
-        # Pick 1-2 random goals to keep it focused and varied
         selected_goals = random.sample(goals, min(2, len(goals)))
         parts.append("Current goals:")
         for g in selected_goals:
@@ -190,37 +370,38 @@ def build_surprise_prompt(
         ]
         if surprise_memories:
             parts.append("")
-            parts.append("Recent surprises (DO NOT repeat these — be fresh and different):")
-            for mem in surprise_memories[:3]:
-                parts.append(f"  - {mem['text'][:100]}")
+            parts.append("Recent surprises (DO NOT repeat these — be completely fresh):")
+            for mem in surprise_memories[:5]:
+                parts.append(f"  - {mem['text'][:120]}")
 
-    # ── Theme + flavor ────────────────────────────────────────────────
+    # ── Theme + flavor + format ───────────────────────────────────────
     theme_label = chosen_theme.replace("_", " ").title()
     theme_hint = _THEME_HINTS.get(chosen_theme, f"Draw from {theme_label} wisdom and real stories.")
 
     parts.append("")
-    parts.append(f"Theme for this surprise: {theme_label}")
+    parts.append(f"Theme: {theme_label}")
     parts.append(theme_hint)
 
     parts.append("")
     parts.append(f"Generate one surprise for {display_name} now.")
 
-    return "\n".join(parts), personality_vibe
+    return "\n".join(parts), personality_vibe, surprise_format
 
 
 def generate_surprise(
     prompt: str,
     profile: dict | None = None,
     personality_vibe: str = "",
+    surprise_format: str = "",
 ) -> tuple[str, str]:
-    """Generate surprise using the custom model. Profile needed for dynamic system prompt."""
+    """Generate surprise via the configured LLM. Returns (text, surprise_id)."""
     surprise_id = uuid.uuid4().hex
 
     if profile is None:
         profile = config.load_profile()
 
     display_name = profile.get("display_name", profile.get("name", "Friend"))
-    system_prompt = _build_system_prompt(profile, personality_vibe)
+    system_prompt = _build_system_prompt(profile, personality_vibe, surprise_format)
 
     try:
         text = llm_provider.generate(system_prompt, prompt, profile)
@@ -235,20 +416,18 @@ def generate_surprise(
             lower = line.strip().lower()
             if any(lower.startswith(prefix) for prefix in [
                 "thinking", "draft", "let me", "i'll", "here's", "okay",
-                "sure", "note:", "---", "***",
+                "sure", "note:", "---", "***", "format:", "approach:",
             ]):
                 continue
             cleaned.append(line)
         text = "\n".join(cleaned).strip()
 
-        # If the model didn't start with the greeting, prepend it
+        # Ensure the greeting is present
         if text and not text.startswith(f"Hey {display_name}"):
-            # Check if it starts with some other greeting pattern and fix it
             if text.startswith("Hey "):
-                # Model used a different name — replace just the first line's name
-                pass  # keep as is, the model knows best
+                pass  # model used a variant — keep it
             else:
-                text = f"Hey {display_name},\n{text}"
+                text = f"Hey {display_name}, {text}"
 
         if not text or len(text) < 20:
             logger.warning("Model returned empty or very short response, using fallback")

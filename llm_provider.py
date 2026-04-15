@@ -20,7 +20,7 @@ Quick-start examples for user_profile.json:
     "llm": {"provider": "chatgpt", "model": "gpt-4o"}
 
   Gemini:
-    "llm": {"provider": "gemini", "model": "gemini-2.5-flash"}
+    "llm": {"provider": "gemini", "model": "gemini-2.0-flash"}
 
   Any OpenAI-compatible endpoint:
     "llm": {"provider": "openai_compatible", "model": "my-model",
@@ -29,12 +29,17 @@ Quick-start examples for user_profile.json:
 
 import logging
 import os
+import random
 import time
 
 logger = logging.getLogger("surprisesage.llm")
 
-_CLOUD_MAX_RETRIES = 2
+_CLOUD_MAX_RETRIES = 4
 _CLOUD_BASE_DELAY = 1.0  # seconds
+_CLOUD_MAX_DELAY = 15.0  # cap backoff
+
+# HTTP status codes worth retrying (transient / rate-limit)
+_RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 # ── Provider → litellm model prefix mapping ─────────────────────────────
 _PROVIDER_PREFIX = {
@@ -70,7 +75,7 @@ DEFAULT_LLM_CONFIG = {
     "provider": "ollama",
     "model": "surprisesage:latest",
     "temperature": 0.82,
-    "max_tokens": 300,
+    "max_tokens": 2048,
 }
 
 
@@ -130,7 +135,7 @@ def _generate_ollama(system_prompt: str, user_prompt: str, llm: dict) -> str:
             {"role": "user", "content": user_prompt},
         ],
         options={
-            "num_predict": llm.get("max_tokens", 300),
+            "num_predict": llm.get("max_tokens", 2048),
             "temperature": llm.get("temperature", 0.82),
         },
         think=False,
@@ -170,16 +175,24 @@ def _generate_litellm(system_prompt: str, user_prompt: str, llm: dict) -> str:
             {"role": "user", "content": user_prompt},
         ],
         "temperature": llm.get("temperature", 0.82),
-        "max_tokens": llm.get("max_tokens", 300),
+        "max_tokens": llm.get("max_tokens", 2048),
         "api_key": api_key,
     }
+
+    # Thinking models (Gemini 2.5+) burn tokens on internal reasoning.
+    # Give them a large budget so the visible output isn't starved.
+    # Also set drop_params so litellm silently skips any param the
+    # provider doesn't recognise (avoids 400 errors across versions).
+    kwargs["drop_params"] = True
+    if "gemini-2.5" in model or "gemini-3" in model:
+        kwargs["max_tokens"] = max(kwargs.get("max_tokens", 2048), 4096)
 
     # Custom base URL (for openai_compatible or self-hosted)
     base_url = llm.get("base_url")
     if base_url:
         kwargs["api_base"] = base_url
 
-    # Retry with exponential backoff for transient cloud errors
+    # Retry with exponential backoff + jitter for transient cloud errors
     last_err = None
     for attempt in range(_CLOUD_MAX_RETRIES + 1):
         try:
@@ -187,11 +200,22 @@ def _generate_litellm(system_prompt: str, user_prompt: str, llm: dict) -> str:
             return response.choices[0].message.content.strip()
         except Exception as e:
             last_err = e
+
+            # Only retry on transient errors — fail fast on auth / bad request
+            status = getattr(e, "status_code", None)
+            if status and status not in _RETRYABLE_STATUS_CODES:
+                logger.error("Cloud LLM non-retryable error (HTTP %d): %s", status, e)
+                raise
+
             if attempt < _CLOUD_MAX_RETRIES:
-                delay = _CLOUD_BASE_DELAY * (2 ** attempt)
-                logger.warning("Cloud LLM attempt %d failed (%s), retrying in %.1fs",
-                               attempt + 1, e, delay)
-                time.sleep(delay)
+                delay = min(_CLOUD_BASE_DELAY * (2 ** attempt), _CLOUD_MAX_DELAY)
+                jitter = random.uniform(0, delay * 0.3)
+                logger.warning("Cloud LLM attempt %d/%d failed (HTTP %s): retrying in %.1fs",
+                               attempt + 1, _CLOUD_MAX_RETRIES + 1,
+                               status or "?", delay + jitter)
+                time.sleep(delay + jitter)
+            else:
+                logger.error("Cloud LLM exhausted all %d attempts", _CLOUD_MAX_RETRIES + 1)
     raise last_err
 
 
