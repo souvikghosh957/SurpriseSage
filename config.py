@@ -30,7 +30,7 @@ EMBED_MODEL = "nomic-embed-text"
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 # ── UI / Popup ───────────────────────────────────────────────────────────
-POPUP_DURATION_SEC = 30          # How long the popup stays visible
+POPUP_DURATION_SEC = 45          # How long the popup stays visible
 POPUP_WIDTH = 460
 POPUP_ALPHA = 0.97
 

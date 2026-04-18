@@ -202,7 +202,13 @@ def main() -> None:
                 corner_radius=14, font=_f(11, "bold", _TEXT),
                 fg_color=BLUE, hover_color=BLUE_H, command=_deep,
             ).pack(side="left", padx=(10, 0))
-        root.after(5000, fade_out)
+        # Re-add close button so user can always dismiss
+        ctk.CTkButton(
+            btns, text="\u00d7", width=32, height=32, corner_radius=16,
+            font=_f(14, fam=_TEXT), fg_color="transparent", hover_color="#242430",
+            border_width=1, border_color=BORDER, text_color=GRAY, command=fade_out,
+        ).pack(side="right")
+        root.after(8000, fade_out)
 
     def _deep():
         if not state.get("deep_sent"):
@@ -225,6 +231,12 @@ def main() -> None:
                 font=_f(11, fam=_TEXT), fg_color=DARK, hover_color=DARK_H,
                 command=lambda r=r: send(-1, r),
             ).pack(side="left", padx=(0, 4))
+        # Re-add close button
+        ctk.CTkButton(
+            btns, text="\u00d7", width=32, height=26, corner_radius=13,
+            font=_f(14, fam=_TEXT), fg_color="transparent", hover_color="#242430",
+            border_width=1, border_color=BORDER, text_color=GRAY, command=fade_out,
+        ).pack(side="right")
 
     # Primary buttons
     ctk.CTkButton(
@@ -242,7 +254,7 @@ def main() -> None:
     ctk.CTkButton(
         btns, text="\u00d7", width=32, height=32, corner_radius=16,
         font=_f(14, fam=_TEXT), fg_color="transparent", hover_color="#242430",
-        border_width=1, border_color=BORDER, text_color=DIM, command=fade_out,
+        border_width=1, border_color=BORDER, text_color=GRAY, command=fade_out,
     ).pack(side="right")
 
     # ── Progress bar ──────────────────────────────────────────────────

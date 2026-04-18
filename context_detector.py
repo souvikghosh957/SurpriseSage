@@ -67,6 +67,14 @@ def get_friendly_label(app_name: str) -> str:
     return _APP_LABELS.get(app_name, f"using {app_name}")
 
 
+_IDE_APPS = {
+    "Code", "Visual Studio Code", "IntelliJ IDEA", "PyCharm",
+    "WebStorm", "GoLand", "CLion", "Rider", "RubyMine",
+    "PhpStorm", "DataGrip", "Android Studio", "Xcode",
+    "Sublime Text", "Atom", "Cursor",
+}
+
+
 def get_active_context() -> Dict[str, str | bool]:
     """
     Return current context as a dict:
@@ -74,6 +82,7 @@ def get_active_context() -> Dict[str, str | bool]:
             "app_name": str,
             "window_title": str,
             "is_fullscreen": bool,
+            "is_ide": bool,
             "friendly_label": str
         }
     """
@@ -81,6 +90,7 @@ def get_active_context() -> Dict[str, str | bool]:
         "app_name": "",
         "window_title": "",
         "is_fullscreen": False,
+        "is_ide": False,
         "friendly_label": "hanging out on the Mac",
     }
 
@@ -99,6 +109,7 @@ def get_active_context() -> Dict[str, str | bool]:
             app_name = active_app.localizedName() or ""
             result["app_name"] = app_name
             result["friendly_label"] = get_friendly_label(app_name)
+            result["is_ide"] = app_name in _IDE_APPS
 
         # 2. Window title + fullscreen detection
         if active_app:

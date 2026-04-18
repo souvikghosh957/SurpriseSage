@@ -46,7 +46,7 @@ def show_popup(
         # Listen for feedback in background thread
         def _listen_for_feedback() -> None:
             try:
-                stdout, stderr = proc.communicate(timeout=config.POPUP_DURATION_SEC + 30)
+                stdout, stderr = proc.communicate(timeout=config.POPUP_DURATION_SEC * 2 + 30)
 
                 if stdout:
                     for line in stdout.strip().splitlines():

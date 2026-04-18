@@ -67,8 +67,8 @@ def main() -> None:
             p = state["profile"]  # always use the latest reloaded profile
             context = get_active_context()
 
-            if context.get("is_fullscreen"):
-                logger.info("Skipping surprise (user in fullscreen)")
+            if context.get("is_fullscreen") and not context.get("is_ide"):
+                logger.info("Skipping surprise (user in fullscreen, non-IDE app)")
                 return
 
             # Fetch context-based + theme-based memories and merge (dedup by text)
@@ -112,7 +112,8 @@ def main() -> None:
                     display_name = p.get("display_name", p.get("name", "Friend"))
                     deep_system = (
                         f"You are SurpriseSage. The user loved a surprise and wants the full story.\n\n"
-                        f"Write 60-90 words. Tell the story behind the story.\n\n"
+                        f"Write 70-100 words. Tell the story behind the story — the human details, "
+                        f"the struggles, the moments that gave people chills.\n\n"
                         f"LANGUAGE:\n"
                         f"- Short sentences. Simple words. Like telling a friend over chai.\n"
                         f"- 'use' not 'utilize'. 'old' not 'ancient'. 'trick' not 'mechanism'. "
@@ -121,7 +122,8 @@ def main() -> None:
                         f"forge, testament, pivotal, embark, framework, fragment, circuit, "
                         f"harness, leverage, navigate, landscape, ecosystem, holistic.\n"
                         f"- Proper sentence case. No random caps.\n"
-                        f"- End with something inspiring for {display_name}.\n\n"
+                        f"- End with a line that stays with {display_name}. Something inspiring "
+                        f"and deeply personal — the kind of thought that lingers.\n\n"
                         f"Start with 'Hey {display_name},' — warm and personal."
                     )
                     deep_prompt = (
